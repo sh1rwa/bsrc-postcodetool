@@ -226,21 +226,11 @@ async function lookup() {
     .map(p => p.trim())
     .filter(p => p !== "");
 
-// Remove duplicates
-let seen = new Set();
-let duplicates = [];
+let postcodes = input
+    .split(/\n|,/)
+    .map(p => p.trim())
+    .filter(p => p !== "");
 
-let postcodes = rawPostcodes.filter(p => {
-    let formatted = formatPostcode(p);
-
-    if (seen.has(formatted)) {
-        duplicates.push(formatted);
-        return false;
-    }
-
-    seen.add(formatted);
-    return true;
-});
 
 // Notify user if duplicates found
 if (duplicates.length > 0) {
@@ -423,10 +413,7 @@ let alreadyExists = parts
     .map(p => formatPostcode(p.trim()))
     .includes(formattedSelected);
 
-if (alreadyExists) {
-    alert("This postcode has already been added.");
-    return;
-}
+
 
 // Replace last typed part
 parts[parts.length - 1] = formattedSelected;
