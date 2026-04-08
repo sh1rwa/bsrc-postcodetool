@@ -221,10 +221,6 @@ function getSuggestions(input) {
 async function lookup() {
     let input = document.getElementById("input").value;
 
-    let rawPostcodes = input
-    .split(/\n|,/)
-    .map(p => p.trim())
-    .filter(p => p !== "");
 
 let postcodes = input
     .split(/\n|,/)
@@ -233,14 +229,7 @@ let postcodes = input
 
 
 // Notify user if duplicates found
-if (duplicates.length > 0) {
-   document.getElementById("message").innerHTML =
-        `<p style="color: orange;">
-            Duplicate postcodes removed: ${duplicates.join(", ")}
-        </p>`;
-} else {
-    document.getElementById("message").innerHTML = "";
-}
+
 
     let response = await fetch("/lookup", {
         method: "POST",
@@ -408,10 +397,9 @@ document.addEventListener("click", (e) => {
         // Replace last typed part
         let formattedSelected = formatPostcode(selected);
 
-// Check for duplicates
-let alreadyExists = parts
-    .map(p => formatPostcode(p.trim()))
-    .includes(formattedSelected);
+
+// Replace last typed part
+parts[parts.length - 1] = formattedSelected;
 
 
 
@@ -423,8 +411,7 @@ parts[parts.length - 1] = formattedSelected;
         // Clear suggestions
         document.getElementById("liveSuggestions").innerHTML = "";
 
-        // Run lookup automatically
-        lookup();
+       
     }
 });
 
