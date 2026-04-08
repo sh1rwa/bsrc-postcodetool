@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Bristol Postcode to Ward Lookup</title>
+
+
+    <style>
+        body {
+            font-family: Arial;
+            max-width: 800px;
+            margin: auto;
+            padding: 20px;
+        }
+
+        textarea {
+    width: 100%;
+    height: 120px;
+    margin-bottom: 10px;
+
+    background-color: rgba(255, 255, 255, 0.75); /*  key */
+    border: 1px solid #ccc;
+    padding: 10px;
+
+    backdrop-filter: blur(4px); /*  glass effect */
+    -webkit-backdrop-filter: blur(4px);
+}
+        small {
+    color: #555;
+    font-style: italic;
+}
+
+
+.instructions {
+    background-color: rgba(255, 255, 255, 0.6); /* same transparency */
+    border-left: 4px solid #007BFF;
+    padding: 10px 15px;
+    margin-bottom: 20px;
+
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+}
+
+.instructions h3 {
+    margin-top: 0;
+}
+
+.instructions ul {
+    padding-left: 20px;
+}
+        button {
+            padding: 10px 15px;
+            margin-right: 10px;
+            cursor: pointer;
+        }
+
+        .suggestion {
+    color: blue;
+    cursor: pointer;
+    text-decoration: underline;
+}
+
+.suggestion:hover {
+    color: darkblue;
+}
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        th, td {
+            border: 1px solid #ccc;
+            padding: 8px;
+            text-align: left;
+        }
+
+        th {
+            background-color: #f4f4f4;
+        }
+
+        .not-found {
+            color: red;
+            font-weight: bold;
+        }
+
+        body {
+    font-family: Arial;
+    max-width: 800px;
+    margin: auto;
+    padding: 20px;
+    position: relative;
+    z-index: 1;
+}
+
+/* Background layer */
+body::before {
+    content: "";
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+
+    background-image: url("/static/coa_bristol.svg");
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: 500px;
+
+    opacity: 0.08; /*  controls transparency */
+    z-index: -1;
+}
+
+        .invalid {
+    background-color: #ffe6e6;
+    color: red;
+    font-weight: bold;
+}
+
+.suggestions-box {
+    border: 1px solid #ccc;
+    max-height: 150px;
+    overflow-y: auto;
+    background: white;
+    position: absolute;
+    width: 100%;
+    z-index: 1000;
+}
+
+.live-suggestion {
+    padding: 8px;
+    cursor: pointer;
+}
+
+.live-suggestion:hover {
+    background-color: #f0f0f0;
+}
+
+.not-found {
+    background-color: #fff3cd;
+    color: #856404;
+}
+    </style>
+</head>
+
+<body>
+
+<h2>Bristol Postcode to Ward Lookup</h2>
+
+<div class="instructions">
+    <h3>How to use this tool</h3>
+    <ul>
+        <li>Enter one or more postcodes into the box below.</li>
+        <li>Separate postcodes using commas or new lines.</li>
+        <li>Click <b>Lookup</b> to find the corresponding ward.</li>
+        <li>Click suggestions to quickly correct any incorrect postcodes.</li>
+        <li>Invalid inputs will be highlighted and excluded from downloads.</li>
+        <p><b>Example:</b></p>
+<pre>BS1 1AD
+BS1 1BT, BS1 1BU</pre>
+    </ul>
+</div>
+
+<div style="position: relative;">
+
+    <textarea id="input" placeholder="Enter postcodes (separated by a comma or a new line)"></textarea>
+
+    <div id="liveSuggestions" class="suggestions-box"></div>
+</div>
+
+<br>
+
+<button onclick="lookup()">Lookup</button>
+<button onclick="downloadCSV()">Download CSV</button>
+
+<div id="message"></div>
+
+<table id="results"></table>
+
+<script>
+let latestData = [];
+let allPostcodes = [];
+
+fetch("/postcodes")
+    .then(res => res.json())
+    .then(data => {
+        allPostcodes = data;
+    });
+
+function similarity(a, b) {
+let longer = a.length > b.length ? a : b;
+let shorter = a.length > b.length ? b : a;
+
+let same = 0;
+for (let i = 0; i < shorter.length; i++) {
+    if (a[i] === b[i]) same++;
+}
+
+    return same / longer.length;
+}
+
+function getSuggestions(input) {
+    let clean = input.toUpperCase().replace(/\s+/g, '');
+
+    let scores = allPostcodes.map(pc => {
+        let cleanPC = pc.replace(/\s+/g, '');
+        return {
+            postcode: pc,
+            score: similarity(clean, cleanPC)
+        };
+    });
+
+    // Sort by best match
+    scores.sort((a, b) => b.score - a.score);
+
+    // Return top 3 suggestions
+    return scores.slice(0, 3).map(s => s.postcode);
+}
+
+
+async function lookup() {
+    let input = document.getElementById("input").value;
+
+    let rawPostcodes = input
+    .split(/\n|,/)
+    .map(p => p.trim())
+    .filter(p => p !== "");
+
+// Remove duplicates
+let seen = new Set();
+let duplicates = [];
+
+let postcodes = rawPostcodes.filter(p => {
+    let formatted = formatPostcode(p);
+
+    if (seen.has(formatted)) {
+        duplicates.push(formatted);
+        return false;
+    }
+
+    seen.add(formatted);
+    return true;
+});
+
+// Notify user if duplicates found
+if (duplicates.length > 0) {
+   document.getElementById("message").innerHTML =
+        `<p style="color: orange;">
+            Duplicate postcodes removed: ${duplicates.join(", ")}
+        </p>`;
+} else {
+    document.getElementById("message").innerHTML = "";
+}
+
+    let response = await fetch("/lookup", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ postcodes })
+    });
+
+    let data = await response.json();
+    latestData = data;
+
+    let table = "<tr><th>Postcode</th><th>Ward</th></tr>";
+
+    data.forEach(row => {
+    let formatted = formatPostcode(row.postcode);
+    let isValid = isValidPostcodeFormat(formatted);
+
+    let wardDisplay = "";
+    let rowClass = "";
+
+    if (!isValid) {
+        wardDisplay = "Invalid input";
+        rowClass = "invalid";
+    } else if (row.ward === "Not found") {
+
+    let suggestions = getSuggestions(row.postcode); // ✅ ADD THIS
+
+    let suggestionsHTML = suggestions.map(s => 
+        `<span class="suggestion" 
+            data-original="${row.postcode}" 
+            data-suggestion="${formatPostcode(s)}">
+            ${formatPostcode(s)}
+        </span>`
+    ).join(", ");
+
+    wardDisplay = `
+        Not found<br>
+        <small>Did you mean: ${suggestionsHTML}</small>
+    `;
+
+    rowClass = "not-found";
+} else {
+        wardDisplay = row.ward;
+    }
+
+    table += `<tr class="${rowClass}">
+        <td>${formatted}</td>
+        <td>${wardDisplay}</td>
+    </tr>`;
+});
+
+    document.getElementById("results").innerHTML = table;
+}
+
+function formatPostcode(postcode) {
+    let clean = postcode.toUpperCase().replace(/\s+/g, '');
+
+    // UK postcode formatting: split before last 3 characters
+    if (clean.length > 3) {
+        return clean.slice(0, -3) + " " + clean.slice(-3);
+    }
+
+    return postcode.toUpperCase();
+}
+
+function isValidPostcodeFormat(postcode) {
+    let clean = postcode.toUpperCase().trim();
+
+    // Match BS + digits + space + digit + 2 letters
+    return /^BS\d+\s\d[A-Z]{2}$/.test(clean);
+}
+
+// ===== DOWNLOAD CSV =====
+function downloadCSV() {
+    if (latestData.length === 0) {
+        alert("No data to download!");
+        return;
+    }
+
+    let csv = "Postcode,Ward\n";
+
+    latestData.forEach(row => {
+        let formatted = formatPostcode(row.postcode);
+        let isValid = isValidPostcodeFormat(formatted);
+
+        // ❌ Skip invalid inputs
+        if (!isValid) return;
+
+        let ward = row.ward === "Not found"
+            ? "Not found in dataset"
+            : row.ward;
+
+        csv += `${formatted},${ward}\n`;
+    });
+
+    let blob = new Blob([csv], { type: "text/csv" });
+    let url = URL.createObjectURL(blob);
+
+    let a = document.createElement("a");
+    a.href = url;
+    a.download = "postcode_results.csv";
+    a.click();
+}
+
+document.addEventListener("click", (e) => {
+    if (e.target.classList.contains("suggestion")) {
+
+        let original = e.target.getAttribute("data-original");
+        let replacement = e.target.getAttribute("data-suggestion");
+
+        let inputBox = document.getElementById("input");
+
+        // Split input into lines/entries
+        let entries = inputBox.value
+            .split(/\n|,/)
+            .map(p => p.trim());
+
+        // Replace the incorrect one
+        let updated = entries.map(p => {
+            let formatted = formatPostcode(p);
+            return formatted === formatPostcode(original)
+                ? replacement
+                : p;
+        });
+
+        // Update input box
+        inputBox.value = updated.join("\n");
+
+        lookup();
+
+        document.getElementById("results").scrollIntoView({ behavior: "smooth" });
+    }
+});
+
+document.getElementById("input").addEventListener("input", () => {
+    let input = document.getElementById("input").value;
+
+    // Get last typed postcode fragment
+    let parts = input.split(/\n|,/);
+    let current = parts[parts.length - 1].trim();
+
+    if (current.length < 2) {
+        document.getElementById("liveSuggestions").innerHTML = "";
+        return;
+    }
+
+    let suggestions = getSuggestions(current).slice(0, 5);
+
+    let html = suggestions.map(s => 
+        `<div class="live-suggestion">${formatPostcode(s)}</div>`
+    ).join("");
+
+    document.getElementById("liveSuggestions").innerHTML = html;
+});
+
+document.addEventListener("click", (e) => {
+    if (e.target.classList.contains("live-suggestion")) {
+
+        let selected = e.target.innerText;
+        let inputBox = document.getElementById("input");
+
+        let parts = inputBox.value.split(/\n|,/);
+
+        // Replace last typed part
+        let formattedSelected = formatPostcode(selected);
+
+// Check for duplicates
+let alreadyExists = parts
+    .map(p => formatPostcode(p.trim()))
+    .includes(formattedSelected);
+
+if (alreadyExists) {
+    alert("This postcode has already been added.");
+    return;
+}
+
+// Replace last typed part
+parts[parts.length - 1] = formattedSelected;
+
+        inputBox.value = parts.join("\n");
+
+        // Clear suggestions
+        document.getElementById("liveSuggestions").innerHTML = "";
+
+        // Run lookup automatically
+        lookup();
+    }
+});
+
+document.addEventListener("click", (e) => {
+    if (!e.target.classList.contains("live-suggestion") &&
+        e.target.id !== "input") {
+        document.getElementById("liveSuggestions").innerHTML = "";
+    }
+});
+
+</script>
+
+</body>
+</html>
