@@ -11,7 +11,6 @@ df = pd.read_excel("lookup.xlsx", skiprows=4)
 # Set first row as header
 df.columns = df.iloc[0]
 
-
 # Remove that header row from data
 df = df[1:]
 
