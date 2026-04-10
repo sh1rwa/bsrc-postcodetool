@@ -141,6 +141,9 @@ body::before {
     color: #856404;
 }
     </style>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
 </head>
 
 <body>
@@ -172,6 +175,9 @@ BS1 1BT, BS1 1BU</pre>
 
 <button onclick="lookup()">Lookup</button>
 <button onclick="downloadCSV()">Download CSV</button>
+<button onclick="showChart()">📊</button>
+
+<canvas id="wardChart" style="margin-top:20px;"></canvas>
 
 <div id="message"></div>
 
@@ -180,6 +186,8 @@ BS1 1BT, BS1 1BU</pre>
 <script>
 let latestData = [];
 let allPostcodes = [];
+let chartInstance = null;
+let chartVisible = false;
 
 fetch("/postcodes")
     .then(res => res.json())
@@ -294,6 +302,65 @@ function formatPostcode(postcode) {
     }
 
     return postcode.toUpperCase();
+}
+
+function showChart() {
+    let canvas = document.getElementById("wardChart");
+
+    chartVisible = !chartVisible;
+    canvas.style.display = chartVisible ? "block" : "none";
+
+    if (!chartVisible) return;
+
+    // (rest of chart code)
+}
+
+function showChart() {
+    if (!latestData || latestData.length === 0) {
+        alert("Run a lookup first!");
+        return;
+    }
+
+    // Count wards
+    let wardCounts = {};
+
+    latestData.forEach(row => {
+        if (row.ward && row.ward !== "Not found") {
+            wardCounts[row.ward] = (wardCounts[row.ward] || 0) + 1;
+        }
+    });
+
+    let sorted = Object.entries(wardCounts)
+    .sort((a, b) => b[1] - a[1]);
+
+    let labels = sorted.map(x => x[0]);
+    let values = sorted.map(x => x[1]);
+
+    let ctx = document.getElementById("wardChart").getContext("2d");
+
+    // Destroy previous chart if it exists
+    if (chartInstance) {
+        chartInstance.destroy();
+    }
+
+    chartInstance = new Chart(ctx, {
+        type: "bar",
+        data: {
+            labels: labels,
+            datasets: [{
+                label: "Number of Postcodes",
+                data: values
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            }
+        }
+    });
 }
 
 function isValidPostcodeFormat(postcode) {
