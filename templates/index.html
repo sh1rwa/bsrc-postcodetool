@@ -141,6 +141,27 @@ tr:hover {
     z-index: 1000;
 }
 
+.suggestion {
+    color: #007BFF;
+    cursor: pointer;
+    text-decoration: none;
+    font-weight: 500;
+    padding: 2px 6px;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+}
+
+/* Hover effect */
+.suggestion:hover {
+    background-color: #e6f0ff;
+    text-decoration: underline;
+}
+
+
+.suggestion:active {
+    background-color: #cce0ff;
+}
+
 .live-suggestion {
     padding: 8px;
     cursor: pointer;
@@ -206,6 +227,9 @@ tr:hover {
     <p><b>Example:</b></p>
     <pre>BS1 1AD
 BS1 1BT, BS1 1BU</pre>
+
+<p><b>Note:</b></p>
+    <pre>'Invalid' or 'Not Found' postcodes will be highlighted, but will <b>NOT</b> be included in the charts or CSV</pre>
 </div>
 
 <div style="position: relative;">
@@ -221,7 +245,7 @@ BS1 1BT, BS1 1BU</pre>
 <button onclick="downloadCSV()">Download CSV</button>
 <button onclick="toggleChart()">Show/Hide Chart</button>
 <button onclick="downloadChart()">Save Chart</button>
-<button id="filterBtn" onclick="toggleFilter()">Filter Chart</button>
+<button id="filterBtn" onclick="toggleFilter()">Filter</button>
 
 <div id="filterBox" class="filter-box" style="display:none;">
     <div id="filterOptions"></div>
@@ -263,9 +287,7 @@ for (let i = 0; i < shorter.length; i++) {
 function renderTable() {
     let table = "<tr><th>Postcode</th><th>Ward</th></tr>";
 
-    let dataToShow = selectedWards.size > 0
-        ? getFilteredData()
-        : latestData;
+    let dataToShow = getFilteredData();
 
     dataToShow.forEach(row => {
         let formatted = formatPostcode(row.postcode);
@@ -277,10 +299,27 @@ function renderTable() {
         if (!isValid) {
             wardDisplay = "Invalid input";
             rowClass = "invalid";
-        } else if (row.ward === "Not found") {
-            wardDisplay = "Not found";
+        } 
+        else if (row.ward === "Not found") {
+
+            let suggestions = getSuggestions(row.postcode);
+
+            let suggestionsHTML = suggestions.map(s => 
+                `<span class="suggestion" 
+                    data-original="${row.postcode}" 
+                    data-suggestion="${formatPostcode(s)}">
+                    ${formatPostcode(s)}
+                </span>`
+            ).join(", ");
+
+            wardDisplay = `
+                Not found<br>
+                <small>Did you mean: ${suggestionsHTML}</small>
+            `;
+
             rowClass = "not-found";
-        } else {
+        } 
+        else {
             wardDisplay = row.ward;
         }
 
@@ -357,11 +396,19 @@ function updateFilterCounts() {
 }
 
 function getFilteredData() {
-    return latestData.filter(row =>
-        row.ward &&
-        row.ward !== "Not found" &&
-        selectedWards.has(row.ward)
-    );
+    return latestData.filter(row => {
+        let formatted = formatPostcode(row.postcode);
+        let isValid = isValidPostcodeFormat(formatted);
+
+        // Always include invalid inputs
+        if (!isValid) return true;
+
+        // Always include "Not found"
+        if (row.ward === "Not found") return true;
+
+        // Only filter valid wards
+        return selectedWards.has(row.ward);
+    });
 }
 
 function downloadChart() {
@@ -370,40 +417,61 @@ function downloadChart() {
         return;
     }
 
-    // Get chart image
     let chartCanvas = document.getElementById("wardChart");
-    let chartImage = chartCanvas.toDataURL("image/png");
 
-    // Create a new canvas to combine chart + text
+    // ===== 1. Calculate counts FIRST =====
+    let wardCounts = {};
+    let total = 0;
+
+    latestData.forEach(row => {
+        let formatted = formatPostcode(row.postcode);
+        let isValid = isValidPostcodeFormat(formatted);
+
+        if (
+            isValid &&
+            row.ward !== "Not found" &&
+            selectedWards.has(row.ward)
+        ) {
+            wardCounts[row.ward] = (wardCounts[row.ward] || 0) + 1;
+            total++;
+        }
+    });
+
+    // ===== 2. Calculate dynamic height =====
+    let width = chartCanvas.width;
+
+    let numWards = Object.keys(wardCounts).length;
+    let numLines = numWards + 2; // title + total
+
+    let lineHeight = 20;
+    let extraHeight = (numLines * lineHeight) + 40;
+
+    let height = chartCanvas.height + extraHeight;
+
     let canvas = document.createElement("canvas");
     let ctx = canvas.getContext("2d");
-
-    let width = chartCanvas.width;
-    let height = chartCanvas.height + 100; // extra space for text
 
     canvas.width = width;
     canvas.height = height;
 
+    // ===== 3. Load chart image =====
     let img = new Image();
-    img.src = chartImage;
+    img.src = chartCanvas.toDataURL("image/png");
 
     img.onload = function () {
+
+        // White background
+        ctx.fillStyle = "white";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
         // Draw chart
         ctx.drawImage(img, 0, 0);
 
-        // Prepare counts
-        let wardCounts = {};
-
-        latestData.forEach(row => {
-            if (row.ward && row.ward !== "Not found" && selectedWards.has(row.ward)
-                ) {
-                wardCounts[row.ward] = (wardCounts[row.ward] || 0) + 1;
-            }
-        });
-
-        let textY = chartCanvas.height + 20;
+        // Text styling
         ctx.fillStyle = "black";
         ctx.font = "14px Arial";
+
+        let textY = chartCanvas.height + 30;
 
         ctx.fillText("Postcode Counts:", 10, textY);
 
@@ -417,10 +485,18 @@ function downloadChart() {
             i++;
         }
 
-        // Download image
+        // Total
+        ctx.font = "bold 14px Arial";
+        ctx.fillText(
+            `Total: ${total}`,
+            10,
+            textY + ((i + 1) * 20)
+        );
+
+        // ===== 4. Download =====
         let link = document.createElement("a");
         link.download = "postcode_chart.png";
-        link.href = canvas.toDataURL();
+        link.href = canvas.toDataURL("image/png");
         link.click();
     };
 }
@@ -471,12 +547,31 @@ function populateFilters() {
 }
 
 function updateTotalCount() {
-    let count = selectedWards.size > 0
-        ? getFilteredData().length
-        : latestData.length;
+
+    let filtered = getFilteredData();
+
+    let total = latestData.length;
+    let showing = filtered.length;
+
+    let valid = 0;
+    let notFound = 0;
+    let invalid = 0;
+
+    filtered.forEach(row => {
+        let formatted = formatPostcode(row.postcode);
+        let isValid = isValidPostcodeFormat(formatted);
+
+        if (!isValid) {
+            invalid++;
+        } else if (row.ward === "Not found") {
+            notFound++;
+        } else {
+            valid++;
+        }
+    });
 
     document.getElementById("totalCount").innerText =
-        `Total postcodes: ${count}`;
+        `Showing ${showing} out of ${total} postcodes: ${valid} valid, ${notFound} not found, ${invalid} invalid`;
 }
 
 
@@ -504,56 +599,15 @@ let postcodes = input
     let data = await response.json();
 
     latestData = data;
-    updateTotalCount();
-    populateFilters();
-    renderTable();
+
+    populateFilters();   // sets selectedWards first
+    renderTable();       // builds correct table
+    updateTotalCount();  // counts AFTER table is correct
 
     if (chartVisible) {
         showChart();
     }
 
-    let table = "<tr><th>Postcode</th><th>Ward</th></tr>";
-
-    getFilteredData().forEach(row => {
-    let formatted = formatPostcode(row.postcode);
-    let isValid = isValidPostcodeFormat(formatted);
-
-    let wardDisplay = "";
-    let rowClass = "";
-
-    if (!isValid) {
-        wardDisplay = "Invalid input";
-        rowClass = "invalid";
-    } else if (row.ward === "Not found") {
-
-    let suggestions = getSuggestions(row.postcode); // ✅ ADD THIS
-
-    let suggestionsHTML = suggestions.map(s => 
-        `<span class="suggestion" 
-            data-original="${row.postcode}" 
-            data-suggestion="${formatPostcode(s)}">
-            ${formatPostcode(s)}
-        </span>`
-    ).join(", ");
-
-    wardDisplay = `
-        Not found<br>
-        <small>Did you mean: ${suggestionsHTML}</small>
-    `;
-
-    rowClass = "not-found";
-} else {
-        wardDisplay = row.ward;
-    }
-
-    table += `<tr class="${rowClass}">
-        <td>${formatted}</td>
-        <td>${wardDisplay}</td>
-    </tr>`;
-});
-
-    document.getElementById("results").innerHTML = table;
-    populateFilters();
 }
 
 function formatPostcode(postcode) {
@@ -654,8 +708,8 @@ function downloadCSV() {
         let formatted = formatPostcode(row.postcode);
         let isValid = isValidPostcodeFormat(formatted);
 
-        // ❌ Skip invalid inputs
-        if (!isValid) return;
+        // Skip invalid or not found inputs
+       if (!isValid || row.ward === "Not found") return;
 
         let ward = row.ward === "Not found"
             ? "Not found in dataset"
