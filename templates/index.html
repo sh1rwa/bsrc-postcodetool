@@ -5,95 +5,17 @@
 
 
     <style>
-        body {
-            font-family: Arial;
-            max-width: 800px;
-            margin: auto;
-            padding: 20px;
-        }
-
-        textarea {
-    width: 100%;
-    height: 120px;
-    margin-bottom: 10px;
-
-    background-color: rgba(255, 255, 255, 0.75); /*  key */
-    border: 1px solid #ccc;
-    padding: 10px;
-
-    backdrop-filter: blur(4px); /*  glass effect */
-    -webkit-backdrop-filter: blur(4px);
-}
-        small {
-    color: #555;
-    font-style: italic;
-}
-
-
-.instructions {
-    background-color: rgba(255, 255, 255, 0.6); /* same transparency */
-    border-left: 4px solid #007BFF;
-    padding: 10px 15px;
-    margin-bottom: 20px;
-
-    backdrop-filter: blur(4px);
-    -webkit-backdrop-filter: blur(4px);
-}
-
-.instructions h3 {
-    margin-top: 0;
-}
-
-.instructions ul {
-    padding-left: 20px;
-}
-        button {
-            padding: 10px 15px;
-            margin-right: 10px;
-            cursor: pointer;
-        }
-
-        .suggestion {
-    color: blue;
-    cursor: pointer;
-    text-decoration: underline;
-}
-
-.suggestion:hover {
-    color: darkblue;
-}
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 20px;
-        }
-
-        th, td {
-            border: 1px solid #ccc;
-            padding: 8px;
-            text-align: left;
-        }
-
-        th {
-            background-color: #f4f4f4;
-        }
-
-        .not-found {
-            color: red;
-            font-weight: bold;
-        }
-
-        body {
-    font-family: Arial;
-    max-width: 800px;
-    margin: auto;
-    padding: 20px;
+     
+body {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    background: #f5f7fa;
+    margin: 0;
+    padding: 0;
     position: relative;
     z-index: 1;
 }
 
-/* Background layer */
+/* Background logo */
 body::before {
     content: "";
     position: fixed;
@@ -101,24 +23,116 @@ body::before {
     left: 0;
     width: 100%;
     height: 100%;
-
     background-image: url("/static/coa_bristol.svg");
     background-repeat: no-repeat;
     background-position: center;
     background-size: 500px;
-
-    opacity: 0.08; /*  controls transparency */
+    opacity: 0.05;
     z-index: -1;
 }
 
-        .invalid {
+/* Container */
+.container {
+    max-width: 900px;
+    margin: 40px auto;
+    padding: 20px;
+}
+
+/* Headings */
+h2 {
+    margin-bottom: 15px;
+}
+
+/* Card style (used everywhere) */
+.instructions,
+textarea,
+#results,
+#totalCount,
+canvas {
+    background: rgba(255, 255, 255, 0.9);
+    border-radius: 10px;
+    padding: 15px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+}
+
+/* Instructions */
+.instructions {
+    border-left: 5px solid #007BFF;
+    margin-bottom: 20px;
+}
+
+.instructions h3 {
+    margin-top: 0;
+}
+
+.instructions ul li {
+    margin-bottom: 6px;
+}
+
+/* Textarea */
+textarea {
+    width: 100%;
+    height: 120px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    font-size: 14px;
+}
+
+/* Buttons */
+button {
+    padding: 10px 16px;
+    margin-right: 10px;
+    border: none;
+    border-radius: 6px;
+    background-color: #007BFF;
+    color: white;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+button:hover {
+    background-color: #0056b3;
+    transform: translateY(-1px);
+}
+
+/* Table */
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 15px;
+}
+
+th {
+    background: #007BFF;
+    color: white;
+}
+
+th, td {
+    padding: 10px;
+    border-bottom: 1px solid #eee;
+}
+
+tr:hover {
+    background-color: #f9f9f9;
+}
+
+/* Status styles */
+.invalid {
     background-color: #ffe6e6;
     color: red;
     font-weight: bold;
 }
 
+.not-found {
+    background-color: #fff3cd;
+    color: #856404;
+}
+
+/* Suggestions */
 .suggestions-box {
     border: 1px solid #ccc;
+    border-radius: 6px;
     max-height: 150px;
     overflow-y: auto;
     background: white;
@@ -136,26 +150,35 @@ body::before {
     background-color: #f0f0f0;
 }
 
-.not-found {
-    background-color: #fff3cd;
-    color: #856404;
-}
-
+/* Filter dropdown */
 .filter-box {
     position: absolute;
     background: white;
-    border: 1px solid #ccc;
+    border-radius: 8px;
+    border: 1px solid #ddd;
     padding: 10px;
     margin-top: 5px;
     z-index: 1000;
+    max-height: 200px;
+    overflow-y: auto;
+    box-shadow: 0 6px 16px rgba(0,0,0,0.1);
 }
-    </style>
+
+/* Total count */
+#totalCount {
+    margin-top: 10px;
+    font-weight: bold;
+    color: #333;
+}
+     </style>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 </head>
 
 <body>
+
+    <div class="container">
 
 <h2>Bristol Postcode to Ward Lookup</h2>
 
@@ -751,6 +774,8 @@ document.addEventListener("click", (e) => {
 });
 
 </script>
+
+</div>
 
 </body>
 </html>
