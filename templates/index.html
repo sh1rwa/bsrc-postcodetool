@@ -265,6 +265,11 @@ let allPostcodes = [];
 let chartInstance = null;
 let chartVisible = false;
 let selectedWards = new Set();
+let showInvalid = true;
+let showNotFound = true;
+let debounceTimer;
+
+
 
 fetch("/postcodes")
     .then(res => res.json())
@@ -272,16 +277,26 @@ fetch("/postcodes")
         allPostcodes = data;
     });
 
-function similarity(a, b) {
-let longer = a.length > b.length ? a : b;
-let shorter = a.length > b.length ? b : a;
-
-let same = 0;
-for (let i = 0; i < shorter.length; i++) {
-    if (a[i] === b[i]) same++;
+function updateUI() {
+    renderTable();
+    updateTotalCount();
 }
 
-    return same / longer.length;
+function safeUpdate() {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(updateUI, 50);
+}
+
+function similarity(a, b) {
+    let longer = a.length > b.length ? a : b;
+    let shorter = a.length > b.length ? b : a;
+
+    let same = 0;
+    for (let i = 0; i < shorter.length; i++) {
+        if (a[i] === b[i]) same++;
+    }
+
+        return same / longer.length;
 }
 
 function renderTable() {
@@ -372,41 +387,38 @@ function updateFilterCounts() {
     });
 
     // Update labels
-    document.querySelectorAll("#filterOptions label").forEach(label => {
-        let ward = label.querySelector("input").value;
-        let count = wardCounts[ward] || 0;
+  document.querySelectorAll("#filterOptions label").forEach(label => {
+    let checkbox = label.querySelector("input");
+    let ward = checkbox.value;
 
-        label.innerHTML = `
-            <input type="checkbox" value="${ward}" 
-                ${selectedWards.has(ward) ? "checked" : ""}>
-            ${ward} (${count})
-        `;
-    });
+    let count = wardCounts[ward] || 0;
 
-    // Reattach event listeners (important!)
-    document.querySelectorAll("#filterOptions input").forEach(cb => {
-       cb.addEventListener("change", () => {
-            updateSelectedWards();
-            updateFilterCounts();
-            renderTable();       // 🔥 update table
-            updateTotalCount();  // 🔥 update count
-            showChart();         // 🔥 update chart
-        });
-    });
+    let countSpan = label.querySelector(".ward-count");
+    if (countSpan) {
+        countSpan.textContent = count;
+    }
+});
+
+
 }
 
 function getFilteredData() {
     return latestData.filter(row => {
+
         let formatted = formatPostcode(row.postcode);
         let isValid = isValidPostcodeFormat(formatted);
 
-        // Always include invalid inputs
-        if (!isValid) return true;
+        // ❌ INVALID handling
+        if (!isValid) {
+            return showInvalid;
+        }
 
-        // Always include "Not found"
-        if (row.ward === "Not found") return true;
+        // ❌ NOT FOUND handling
+        if (row.ward === "Not found") {
+            return showNotFound;
+        }
 
-        // Only filter valid wards
+        // ✅ VALID + FOUND → apply ward filters
         return selectedWards.has(row.ward);
     });
 }
@@ -524,26 +536,50 @@ function populateFilters() {
 
     let wards = Object.keys(wardCounts);
 
-    let html = wards.map(w =>
-        `<label>
-            <input type="checkbox" value="${w}" checked>
-            ${w} (${wardCounts[w]})
-        </label><br>`
-    ).join("");
+    let wardHTML = wards.map(w =>
+    `<label>
+    <input type="checkbox" value="${w}" checked>
+    <span class="ward-label">${w}</span>
+    (<span class="ward-count">${wardCounts[w]}</span>)
+</label><br>`
 
-    document.getElementById("filterOptions").innerHTML = html;
+).join("");
 
+// ✅ Add display options ONCE (outside loop)
+let extraHTML = `
+    <hr>
+    <strong>Display Options</strong><br>
+    <label>
+        <input type="checkbox" id="toggleInvalid" checked>
+        Show Invalid
+    </label><br>
+    <label>
+        <input type="checkbox" id="toggleNotFound" checked>
+        Show Not Found
+    </label>
+`;
+
+document.getElementById("filterOptions").innerHTML = wardHTML + extraHTML;
     selectedWards = new Set(wards);
 
     document.querySelectorAll("#filterOptions input").forEach(cb => {
         cb.addEventListener("change", () => {
             updateSelectedWards();
             updateFilterCounts();
-            renderTable();       // 🔥 update table
-            updateTotalCount();  // 🔥 update count
+            safeUpdate();
             showChart();         // 🔥 update chart
         });
     });
+
+    document.getElementById("toggleInvalid").addEventListener("change", (e) => {
+    showInvalid = e.target.checked;
+    safeUpdate();
+});
+
+document.getElementById("toggleNotFound").addEventListener("change", (e) => {
+    showNotFound = e.target.checked;
+    safeUpdate();
+});
 }
 
 function updateTotalCount() {
@@ -601,8 +637,8 @@ let postcodes = input
     latestData = data;
 
     populateFilters();   // sets selectedWards first
-    renderTable();       // builds correct table
-    updateTotalCount();  // counts AFTER table is correct
+    renderTable();
+    updateTotalCount(); // counts AFTER table is correct
 
     if (chartVisible) {
         showChart();
@@ -690,9 +726,14 @@ function resetFilters() {
 
     updateSelectedWards();
     updateFilterCounts();
-    renderTable();       
-    updateTotalCount();   
-    showChart();          
+    safeUpdate();  
+    showChart();    
+    
+    document.getElementById("toggleInvalid").checked = true;
+    document.getElementById("toggleNotFound").checked = true;
+
+    showInvalid = true;
+    showNotFound = true;
 }
 
 // ===== DOWNLOAD CSV =====
