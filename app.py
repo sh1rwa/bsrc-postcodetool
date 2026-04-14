@@ -80,20 +80,15 @@ def single_lookup():
     if not postcode:
         return {"error": "No postcode provided"}, 400
 
-    # Format postcode
     clean = postcode.replace(" ", "")
+
+    ward = postcode_dict.get(clean, "Not found")
+
+    # Format for output
     if len(clean) > 3:
         formatted = clean[:-3] + " " + clean[-3:]
     else:
         formatted = postcode
-
-    # Lookup in dataframe
-    match = df[df["Postcode"] == formatted]
-
-    if not match.empty:
-        ward = match.iloc[0]["Ward"]
-    else:
-        ward = "Not found"
 
     return {
         "postcode": formatted,
