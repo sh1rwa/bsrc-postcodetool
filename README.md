@@ -9,7 +9,7 @@ It was built during my placement at a charity, where staff frequently needed to 
 ## Live Tool
 
 Access the tool here:  
-👉 https://bsrcpostcode.onrender.com/
+https://bsrcpostcode.onrender.com/
 
 ---
 
@@ -28,7 +28,7 @@ Access the tool here:
 ## Data visualisation & filtering
 
 - Generate a bar chart showing the distribution of postcodes across wards  
-- Filter results by ward using an interactive dropdown with checkboxes  
+- Filter results by ward using an interactive dropdown with checkboxes to hide invalid/not found results  
 - View dynamic counts for each ward directly in the filter menu  
 - Automatically update the chart, table, and totals when filters are applied  
 - Reset filters to return to the full dataset  
