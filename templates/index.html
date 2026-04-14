@@ -191,6 +191,20 @@ tr:hover {
     font-weight: bold;
     color: #333;
 }
+
+.instructions-header {
+    cursor: pointer;
+    font-size: 16px;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.instructions-header:hover {
+    opacity: 0.8;
+}
+
      </style>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -204,7 +218,13 @@ tr:hover {
 <h2>Bristol Postcode to Ward Lookup</h2>
 
 <div class="instructions">
-    <h3>How to use this tool</h3>
+
+    <div class="instructions-header" onclick="toggleInstructions()">
+        <span id="instructionArrow">▼</span>
+        <strong>How to use this tool</strong>
+    </div>
+
+    <div id="instructionsContent" style="display:none;">
 
     <ul>
         <li>Enter one or more postcodes into the box below.</li>
@@ -230,6 +250,8 @@ BS1 1BT, BS1 1BU</pre>
 
 <p><b>Note:</b></p>
     <pre>'Invalid' or 'Not Found' postcodes will be highlighted, but will <b>NOT</b> be included in the charts or CSV</pre>
+</div>
+
 </div>
 
 <div style="position: relative;">
@@ -276,6 +298,19 @@ fetch("/postcodes")
     .then(data => {
         allPostcodes = data;
     });
+
+function toggleInstructions() {
+    let content = document.getElementById("instructionsContent");
+    let arrow = document.getElementById("instructionArrow");
+
+    if (content.style.display === "none") {
+        content.style.display = "block";
+        arrow.textContent = "▼";
+    } else {
+        content.style.display = "none";
+        arrow.textContent = "▶";
+    }
+}
 
 function updateUI() {
     renderTable();
