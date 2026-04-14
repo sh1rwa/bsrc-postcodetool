@@ -73,6 +73,33 @@ def lookup():
 
     return jsonify(results)
 
+@app.route("/single_lookup", methods=["GET"])
+def single_lookup():
+    postcode = request.args.get("postcode", "").strip().upper()
+
+    if not postcode:
+        return {"error": "No postcode provided"}, 400
+
+    # Format postcode
+    clean = postcode.replace(" ", "")
+    if len(clean) > 3:
+        formatted = clean[:-3] + " " + clean[-3:]
+    else:
+        formatted = postcode
+
+    # Lookup in dataframe
+    match = df[df["Postcode"] == formatted]
+
+    if not match.empty:
+        ward = match.iloc[0]["Ward"]
+    else:
+        ward = "Not found"
+
+    return {
+        "postcode": formatted,
+        "ward": ward
+    }
+
 
 # ===== RUN =====
 if __name__ == "__main__":
