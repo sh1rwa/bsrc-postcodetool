@@ -1,285 +1,804 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Bristol Postcode to Ward Lookup</title>
-
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <style>
-     
-body {
-    font-family: 'Segoe UI', Arial, sans-serif;
-    background: #f5f7fa;
-    margin: 0;
-    padding: 0;
-    position: relative;
-    z-index: 1;
-}
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-/* Background logo */
-body::before {
-    content: "";
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-image: url("/static/coa_bristol.svg");
-    background-repeat: no-repeat;
-    background-position: center;
-    background-size: 500px;
-    opacity: 0.05;
-    z-index: -1;
-}
+        :root {
+            --navy: #0f1f3d;
+            --navy-mid: #1a3260;
+            --navy-light: #2a4a8a;
+            --gold: #c8963e;
+            --gold-light: #e8b86a;
+            --gold-pale: #fdf4e7;
+            --surface: #ffffff;
+            --surface-2: #f7f9fc;
+            --surface-3: #eef1f6;
+            --border: #d6dce8;
+            --text-primary: #0f1f3d;
+            --text-secondary: #4a5878;
+            --text-muted: #8a96b0;
+            --success-bg: #eaf4ee;
+            --success-text: #1d6a38;
+            --error-bg: #fceeed;
+            --error-text: #a32020;
+            --warn-bg: #fff8e6;
+            --warn-text: #7a5200;
+            --radius-sm: 6px;
+            --radius-md: 10px;
+            --radius-lg: 16px;
+            --shadow-card: 0 2px 12px rgba(15,31,61,0.08), 0 1px 3px rgba(15,31,61,0.05);
+            --shadow-elevated: 0 8px 32px rgba(15,31,61,0.12), 0 2px 8px rgba(15,31,61,0.06);
+        }
 
-/* Container */
-.container {
-    max-width: 900px;
-    margin: 40px auto;
-    padding: 20px;
-}
+        html { font-size: 16px; }
 
-/* Headings */
-h2 {
-    margin-bottom: 15px;
-}
+        body {
+            font-family: 'DM Sans', sans-serif;
+            background: var(--surface-2);
+            color: var(--text-primary);
+            min-height: 100vh;
+            line-height: 1.6;
+        }
 
-/* Card style (used everywhere) */
-.instructions,
-textarea,
-#results,
-#totalCount,
-canvas {
-    background: rgba(255, 255, 255, 0.9);
-    border-radius: 10px;
-    padding: 15px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.06);
-}
+        /* Bristol CoA background */
+        body::before {
+            content: "";
+            position: fixed;
+            inset: 0;
+            background-image: url("/static/coa_bristol.svg");
+            background-repeat: no-repeat;
+            background-position: center 40%;
+            background-size: 480px;
+            opacity: 0.035;
+            pointer-events: none;
+            z-index: 0;
+        }
 
-/* Instructions */
-.instructions {
-    border-left: 5px solid #007BFF;
-    margin-bottom: 20px;
-}
+        /* ── HEADER ── */
+        .site-header {
+            background: var(--navy);
+            border-bottom: 3px solid var(--gold);
+            padding: 0;
+            position: relative;
+            z-index: 10;
+        }
 
-.instructions h3 {
-    margin-top: 0;
-}
+        .header-inner {
+            max-width: 920px;
+            margin: 0 auto;
+            padding: 20px 24px;
+            display: flex;
+            align-items: center;
+            gap: 18px;
+        }
 
-.instructions ul li {
-    margin-bottom: 6px;
-}
+        .header-coa {
+            width: 48px;
+            height: 48px;
+            background-image: url("/static/coa_bristol.svg");
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+            opacity: 0.9;
+            flex-shrink: 0;
+            filter: brightness(0) invert(1);
+        }
 
-/* Textarea */
-textarea {
-    width: 100%;
-    height: 120px;
-    border: 1px solid #ddd;
-    border-radius: 8px;
-    font-size: 14px;
-}
+        .header-text h1 {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.45rem;
+            font-weight: 700;
+            color: #ffffff;
+            letter-spacing: 0.01em;
+            line-height: 1.2;
+        }
 
-/* Buttons */
-button {
-    padding: 10px 16px;
-    margin-right: 10px;
-    border: none;
-    border-radius: 6px;
-    background-color: #007BFF;
-    color: white;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.2s ease;
-}
+        .header-text p {
+            font-size: 0.8rem;
+            color: rgba(255,255,255,0.55);
+            font-weight: 300;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            margin-top: 2px;
+        }
 
-button:hover {
-    background-color: #0056b3;
-    transform: translateY(-1px);
-}
+        .header-badge {
+            margin-left: auto;
+            background: rgba(200,150,62,0.15);
+            border: 1px solid rgba(200,150,62,0.35);
+            color: var(--gold-light);
+            font-size: 0.7rem;
+            font-weight: 600;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            padding: 4px 12px;
+            border-radius: 20px;
+        }
 
-/* Table */
-table {
-    width: 100%;
-    border-collapse: collapse;
-    margin-top: 15px;
-}
+        /* ── MAIN LAYOUT ── */
+        main {
+            max-width: 920px;
+            margin: 0 auto;
+            padding: 32px 24px 60px;
+            position: relative;
+            z-index: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
 
-th {
-    background: #007BFF;
-    color: white;
-}
+        /* ── CARD ── */
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-card);
+            overflow: hidden;
+        }
 
-th, td {
-    padding: 10px;
-    border-bottom: 1px solid #eee;
-}
+        .card-header {
+            padding: 16px 22px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            background: var(--surface-2);
+        }
 
-tr:hover {
-    background-color: #f9f9f9;
-}
+        .card-header-left {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
 
-/* Status styles */
-.invalid {
-    background-color: #ffe6e6;
-    color: red;
-    font-weight: bold;
-}
+        .card-icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            background: var(--navy);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
 
-.not-found {
-    background-color: #fff3cd;
-    color: #856404;
-}
+        .card-icon svg { display: block; }
 
-/* Suggestions */
-.suggestions-box {
-    border: 1px solid #ccc;
-    border-radius: 6px;
-    max-height: 150px;
-    overflow-y: auto;
-    background: white;
-    position: absolute;
-    width: 100%;
-    z-index: 1000;
-}
+        .card-title {
+            font-family: 'Playfair Display', serif;
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--navy);
+        }
 
-.suggestion {
-    color: #007BFF;
-    cursor: pointer;
-    text-decoration: none;
-    font-weight: 500;
-    padding: 2px 6px;
-    border-radius: 4px;
-    transition: all 0.2s ease;
-}
+        .card-body { padding: 20px 22px; }
 
-/* Hover effect */
-.suggestion:hover {
-    background-color: #e6f0ff;
-    text-decoration: underline;
-}
+        /* ── INSTRUCTIONS ── */
+        .instructions-toggle {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            user-select: none;
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: var(--navy-light);
+        }
 
+        .instructions-toggle:hover { color: var(--gold); }
 
-.suggestion:active {
-    background-color: #cce0ff;
-}
+        .toggle-arrow {
+            width: 18px;
+            height: 18px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--navy);
+            border-radius: 4px;
+            flex-shrink: 0;
+            transition: transform 0.2s;
+        }
 
-.live-suggestion {
-    padding: 8px;
-    cursor: pointer;
-}
+        .toggle-arrow.open { transform: rotate(90deg); }
 
-.live-suggestion:hover {
-    background-color: #f0f0f0;
-}
+        .toggle-arrow svg { display: block; }
 
-/* Filter dropdown */
-.filter-box {
-    position: absolute;
-    background: white;
-    border-radius: 8px;
-    border: 1px solid #ddd;
-    padding: 10px;
-    margin-top: 5px;
-    z-index: 1000;
-    max-height: 200px;
-    overflow-y: auto;
-    box-shadow: 0 6px 16px rgba(0,0,0,0.1);
-}
+        .instructions-content {
+            display: none;
+            margin-top: 16px;
+            padding-top: 16px;
+            border-top: 1px solid var(--border);
+        }
 
-/* Total count */
-#totalCount {
-    margin-top: 10px;
-    font-weight: bold;
-    color: #333;
-}
+        .instructions-content.visible { display: block; }
 
-.instructions-header {
-    cursor: pointer;
-    font-size: 16px;
-    margin-bottom: 10px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
+        .instr-cols {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
 
-.instructions-header:hover {
-    opacity: 0.8;
-}
+        .instr-section h4 {
+            font-size: 0.75rem;
+            font-weight: 600;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            color: var(--gold);
+            margin-bottom: 8px;
+        }
 
-     </style>
+        .instr-section ul {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+        .instr-section ul li {
+            font-size: 0.83rem;
+            color: var(--text-secondary);
+            padding-left: 14px;
+            position: relative;
+            line-height: 1.5;
+        }
 
+        .instr-section ul li::before {
+            content: "–";
+            position: absolute;
+            left: 0;
+            color: var(--gold);
+        }
+
+        .instr-note {
+            margin-top: 14px;
+            padding: 10px 14px;
+            background: var(--navy);
+            border-radius: var(--radius-sm);
+            font-size: 0.8rem;
+            color: rgba(255,255,255,0.75);
+            font-style: italic;
+        }
+
+        /* ── INPUT AREA ── */
+        .input-wrapper {
+            position: relative;
+        }
+
+        textarea#input {
+            width: 100%;
+            height: 130px;
+            padding: 14px 16px;
+            border: 1.5px solid var(--border);
+            border-radius: var(--radius-md);
+            font-family: 'DM Sans', monospace;
+            font-size: 0.9rem;
+            color: var(--text-primary);
+            background: var(--surface);
+            resize: vertical;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            line-height: 1.6;
+        }
+
+        textarea#input:focus {
+            outline: none;
+            border-color: var(--navy-light);
+            box-shadow: 0 0 0 3px rgba(42,74,138,0.12);
+        }
+
+        textarea#input::placeholder { color: var(--text-muted); }
+
+        /* Live suggestions */
+        .suggestions-box {
+            position: absolute;
+            top: calc(100% + 4px);
+            left: 0;
+            right: 0;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-elevated);
+            z-index: 100;
+            overflow: hidden;
+        }
+
+        .live-suggestion {
+            padding: 10px 14px;
+            font-size: 0.875rem;
+            cursor: pointer;
+            color: var(--text-primary);
+            border-bottom: 1px solid var(--border);
+            transition: background 0.12s;
+        }
+
+        .live-suggestion:last-child { border-bottom: none; }
+        .live-suggestion:hover { background: var(--gold-pale); color: var(--navy); }
+
+        /* ── BUTTON ROW ── */
+        .btn-row {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            padding: 10px 18px;
+            border: none;
+            border-radius: var(--radius-sm);
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.18s;
+            text-decoration: none;
+        }
+
+        .btn svg { flex-shrink: 0; }
+
+        .btn-primary {
+            background: var(--navy);
+            color: #fff;
+        }
+
+        .btn-primary:hover {
+            background: var(--navy-light);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(15,31,61,0.25);
+        }
+
+        .btn-secondary {
+            background: var(--surface);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+        }
+
+        .btn-secondary:hover {
+            background: var(--surface-3);
+            border-color: #b4bdd0;
+            transform: translateY(-1px);
+        }
+
+        .btn-gold {
+            background: var(--gold);
+            color: #fff;
+        }
+
+        .btn-gold:hover {
+            background: #b5842e;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(200,150,62,0.35);
+        }
+
+        .btn-group-divider {
+            width: 1px;
+            height: 28px;
+            background: var(--border);
+            margin: 0 4px;
+        }
+
+        /* Filter container */
+        .filter-wrapper { position: relative; }
+
+        .filter-box {
+            display: none;
+            position: absolute;
+            top: calc(100% + 8px);
+            left: 0;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-elevated);
+            padding: 16px;
+            z-index: 200;
+            min-width: 240px;
+            max-height: 340px;
+            overflow-y: auto;
+        }
+
+        .filter-box.open { display: block; }
+
+        .filter-box h4 {
+            font-size: 0.7rem;
+            font-weight: 600;
+            letter-spacing: 0.07em;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            margin-bottom: 10px;
+        }
+
+        #filterOptions label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.83rem;
+            color: var(--text-secondary);
+            padding: 4px 0;
+            cursor: pointer;
+        }
+
+        #filterOptions label:hover { color: var(--navy); }
+
+        #filterOptions input[type="checkbox"] {
+            accent-color: var(--navy);
+            width: 14px;
+            height: 14px;
+            cursor: pointer;
+        }
+
+        .ward-count {
+            margin-left: auto;
+            background: var(--surface-3);
+            color: var(--text-muted);
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 1px 7px;
+            border-radius: 20px;
+        }
+
+        .filter-divider {
+            border: none;
+            border-top: 1px solid var(--border);
+            margin: 10px 0;
+        }
+
+        /* ── STATUS BAR ── */
+        .status-bar {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
+        .status-label {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            font-weight: 400;
+        }
+
+        .status-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: 0.78rem;
+            font-weight: 500;
+        }
+
+        .status-pill.valid { background: var(--success-bg); color: var(--success-text); }
+        .status-pill.invalid { background: var(--error-bg); color: var(--error-text); }
+        .status-pill.notfound { background: var(--warn-bg); color: var(--warn-text); }
+        .status-pill .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+
+        /* ── TABLE ── */
+        .table-scroll { overflow-x: auto; }
+
+        table#results {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        table#results th {
+            background: var(--navy);
+            color: rgba(255,255,255,0.9);
+            font-size: 0.75rem;
+            font-weight: 600;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            padding: 12px 18px;
+            text-align: left;
+        }
+
+        table#results th:first-child { border-radius: 0; }
+
+        table#results td {
+            padding: 12px 18px;
+            font-size: 0.875rem;
+            border-bottom: 1px solid var(--border);
+            color: var(--text-primary);
+            vertical-align: middle;
+        }
+
+        table#results tr:last-child td { border-bottom: none; }
+
+        table#results tbody tr:hover td {
+            background: var(--surface-2);
+        }
+
+        table#results tr.invalid td { background: var(--error-bg); }
+        table#results tr.invalid td:first-child { border-left: 3px solid #e24b4a; }
+
+        table#results tr.not-found td { background: var(--warn-bg); }
+        table#results tr.not-found td:first-child { border-left: 3px solid #e6a817; }
+
+        /* Ward badge in table */
+        .ward-badge {
+            display: inline-block;
+            background: rgba(15,31,61,0.07);
+            color: var(--navy);
+            padding: 2px 10px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+
+        /* Status badge in table */
+        .badge-invalid {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            color: var(--error-text);
+        }
+
+        .badge-notfound {
+            font-size: 0.8rem;
+            font-weight: 500;
+            color: var(--warn-text);
+        }
+
+        /* Suggestion links */
+        .suggestion {
+            color: var(--navy-light);
+            font-weight: 500;
+            cursor: pointer;
+            text-decoration: underline;
+            text-underline-offset: 2px;
+            font-size: 0.8rem;
+        }
+
+        .suggestion:hover { color: var(--gold); }
+
+        /* ── CHART AREA ── */
+        .chart-container {
+            display: none;
+            padding: 20px 22px;
+        }
+
+        .chart-container.visible { display: block; }
+
+        /* ── EMPTY STATE ── */
+        .empty-state {
+            text-align: center;
+            padding: 48px 24px;
+        }
+
+        .empty-state-icon {
+            width: 56px;
+            height: 56px;
+            background: var(--surface-3);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 16px;
+        }
+
+        .empty-state h3 {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.1rem;
+            color: var(--text-secondary);
+            margin-bottom: 6px;
+        }
+
+        .empty-state p {
+            font-size: 0.83rem;
+            color: var(--text-muted);
+        }
+
+        /* ── ANIMATIONS ── */
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .card { animation: fadeUp 0.35s ease both; }
+        .card:nth-child(2) { animation-delay: 0.05s; }
+        .card:nth-child(3) { animation-delay: 0.1s; }
+        .card:nth-child(4) { animation-delay: 0.15s; }
+
+        /* ── RESPONSIVE ── */
+        @media (max-width: 600px) {
+            .instr-cols { grid-template-columns: 1fr; }
+            .header-badge { display: none; }
+            main { padding: 20px 14px 40px; }
+            .card-body { padding: 16px; }
+        }
+    </style>
 </head>
-
 <body>
 
-    <div class="container">
+<!-- HEADER -->
+<header class="site-header">
+    <div class="header-inner">
+        <div class="header-coa" aria-hidden="true"></div>
+        <div class="header-text">
+            <h1>Postcode to Ward Lookup</h1>
+            <p>City of Bristol Council &nbsp;·&nbsp; Geographic Information</p>
+        </div>
+        <span class="header-badge">Bristol</span>
+    </div>
+</header>
 
-<h2>Bristol Postcode to Ward Lookup</h2>
+<main>
 
-<div class="instructions">
+    <!-- HOW TO USE -->
+    <div class="card">
+        <div class="card-body">
+            <div class="instructions-toggle" onclick="toggleInstructions()" id="instrToggle">
+                <span class="toggle-arrow" id="instructionArrow">
+                    <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                        <path d="M3 2l4 3-4 3" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </span>
+                How to use this tool
+            </div>
 
-    <div class="instructions-header" onclick="toggleInstructions()">
-        <span id="instructionArrow">▼</span>
-        <strong>How to use this tool</strong>
+            <div class="instructions-content" id="instructionsContent">
+                <div class="instr-cols">
+                    <div class="instr-section">
+                        <h4>Basic usage</h4>
+                        <ul>
+                            <li>Enter one or more postcodes into the box below</li>
+                            <li>Separate postcodes using commas or new lines</li>
+                            <li>Click <strong>Lookup</strong> to find the corresponding ward</li>
+                            <li>Invalid inputs will be highlighted with suggestions where possible</li>
+                            <li>Duplicate postcodes are supported</li>
+                        </ul>
+                    </div>
+                    <div class="instr-section">
+                        <h4>Additional features</h4>
+                        <ul>
+                            <li>Use <strong>Show/Hide Chart</strong> for a bar chart breakdown by ward</li>
+                            <li>Use <strong>Filter</strong> to select specific wards or toggle invalid/not found rows</li>
+                            <li>Click <strong>Save CSV</strong> to export results for use in Excel</li>
+                            <li>Click <strong>Save Chart</strong> to download the chart with counts</li>
+                            <li>Click <strong>Reset to default</strong> in the filter menu to restore all wards</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="instr-note">
+                    ⚠ &nbsp;'Invalid' or 'Not Found' postcodes are highlighted in the table but are excluded from charts and CSV exports.
+                </div>
+            </div>
+        </div>
     </div>
 
-    <div id="instructionsContent" style="display:none;">
+    <!-- INPUT CARD -->
+    <div class="card">
+        <div class="card-header">
+            <div class="card-header-left">
+                <div class="card-icon">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                        <rect x="2" y="2" width="12" height="3" rx="1" fill="rgba(255,255,255,0.7)"/>
+                        <rect x="2" y="7" width="8" height="2" rx="1" fill="rgba(255,255,255,0.5)"/>
+                        <rect x="2" y="11" width="10" height="2" rx="1" fill="rgba(255,255,255,0.5)"/>
+                    </svg>
+                </div>
+                <span class="card-title">Enter Postcodes</span>
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="input-wrapper">
+                <textarea id="input" placeholder="e.g. BS1 1AD, BS3 2HG&#10;BS6 7JJ&#10;BS8 1TH"></textarea>
+                <div id="liveSuggestions" class="suggestions-box" style="display:none;"></div>
+            </div>
 
-    <ul>
-        <li>Enter one or more postcodes into the box below.</li>
-        <li>Separate postcodes using commas or new lines.</li>
-        <li>Click <b>Lookup</b> to find the corresponding ward.</li>
-        <li>Invalid inputs will be highlighted, and suggestions will be provided where possible.</li>
-        <li>You can enter duplicate postcodes if needed.</li>
-    </ul>
+            <div class="btn-row" style="margin-top: 14px;">
+                <button class="btn btn-primary" onclick="lookup()">
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                        <circle cx="6" cy="6" r="4.5" stroke="white" stroke-width="1.5"/>
+                        <path d="M9.5 9.5l2.5 2.5" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+                    </svg>
+                    Lookup
+                </button>
 
-    <h4>Additional features</h4>
-    <ul>
-        <li>Click <b>Show/Hide Chart</b> to see a bar chart breakdown of postcodes by ward.</li>
-        <li>Use the <b>Filter</b> button to select specific wards using tickboxes, as well as the option to show/hide invalid/not found postcodes.</li>
-        <li>The table, chart, and totals will update automatically based on your selected filters.</li>
-        <li>Click <b>Reset to default</b> in the filter menu to restore all wards.</li>
-        <li>Click <b>Save CSV</b> to export your results into a CSV file that can be used in Excel.</li>
-        <li>Click <b>Save Chart</b> to download the chart with per-ward and total postcode counts.</li>
-    </ul>
+                <div class="btn-group-divider"></div>
 
-    <p><b>Example:</b></p>
-    <pre>BS1 1AD
-BS1 1BT, BS1 1BU</pre>
+                <button class="btn btn-secondary" onclick="downloadCSV()">
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                        <path d="M7 2v7M4 6l3 3 3-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M2 11h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                    </svg>
+                    Save CSV
+                </button>
 
-<p><b>Note:</b></p>
-    <pre>'Invalid' or 'Not Found' postcodes will be highlighted, but will <b>NOT</b> be included in the charts or CSV.</pre>
-</div>
+                <button class="btn btn-secondary" onclick="toggleChart()">
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                        <rect x="1" y="8" width="3" height="5" rx="1" fill="currentColor" opacity="0.7"/>
+                        <rect x="5.5" y="5" width="3" height="8" rx="1" fill="currentColor" opacity="0.85"/>
+                        <rect x="10" y="2" width="3" height="11" rx="1" fill="currentColor"/>
+                    </svg>
+                    Show/Hide Chart
+                </button>
 
-</div>
+                <button class="btn btn-secondary" onclick="downloadChart()">
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                        <path d="M2 10v2a1 1 0 001 1h8a1 1 0 001-1v-2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                        <path d="M7 2v6M4.5 6l2.5 2.5L9.5 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    Save Chart
+                </button>
 
-<div style="position: relative;">
+                <div class="btn-group-divider"></div>
 
-    <textarea id="input" placeholder="Enter postcodes (separated by a comma or a new line)"></textarea>
+                <div class="filter-wrapper">
+                    <button class="btn btn-gold" id="filterBtn" onclick="toggleFilter()">
+                        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                            <path d="M1 3h12M3 7h8M5 11h4" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+                        </svg>
+                        Filter
+                    </button>
 
-    <div id="liveSuggestions" class="suggestions-box"></div>
-</div>
+                    <div id="filterBox" class="filter-box">
+                        <h4>Wards</h4>
+                        <div id="filterOptions"></div>
+                        <hr class="filter-divider">
+                        <button class="btn btn-secondary" style="width:100%; justify-content:center; font-size:0.8rem;" onclick="resetFilters()">
+                            Reset to default
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 
-<br>
+    <!-- RESULTS CARD -->
+    <div class="card" id="resultsCard">
+        <div class="card-header">
+            <div class="card-header-left">
+                <div class="card-icon">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                        <rect x="2" y="3" width="12" height="10" rx="2" stroke="rgba(255,255,255,0.8)" stroke-width="1.2"/>
+                        <path d="M2 6h12" stroke="rgba(255,255,255,0.6)" stroke-width="1"/>
+                        <path d="M6 6v7" stroke="rgba(255,255,255,0.4)" stroke-width="1"/>
+                    </svg>
+                </div>
+                <span class="card-title">Results</span>
+            </div>
+            <div class="status-bar" id="totalCount"></div>
+        </div>
 
-<button onclick="lookup()">Lookup</button>
-<button onclick="downloadCSV()">Download CSV</button>
-<button onclick="toggleChart()">Show/Hide Chart</button>
-<button onclick="downloadChart()">Save Chart</button>
-<button id="filterBtn" onclick="toggleFilter()">Filter</button>
+        <!-- Chart container inside results card -->
+        <div class="chart-container" id="chartContainer">
+            <canvas id="wardChart"></canvas>
+        </div>
 
-<div id="filterBox" class="filter-box" style="display:none;">
-    <div id="filterOptions"></div>
-    <button onclick="resetFilters()">Reset to default</button>
-</div>
+        <!-- Empty state -->
+        <div class="empty-state" id="emptyState">
+            <div class="empty-state-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                    <circle cx="11" cy="11" r="7" stroke="#b4bdd0" stroke-width="1.5"/>
+                    <path d="M16.5 16.5l3 3" stroke="#b4bdd0" stroke-width="1.5" stroke-linecap="round"/>
+                </svg>
+            </div>
+            <h3>No results yet</h3>
+            <p>Enter some postcodes above and click Lookup</p>
+        </div>
 
-<canvas id="wardChart" style="margin-top:20px;"></canvas>
+        <div class="table-scroll">
+            <table id="results"></table>
+        </div>
+    </div>
 
-<div id="message"></div>
+</main>
 
-<div id="totalCount" style="margin-top:10px; font-weight:bold;"></div>
-<table id="results"></table>
+<footer style="text-align: center; padding: 0 0 28px; font-family: 'DM Sans', sans-serif; font-size: 0.75rem; color: #b4bdd0; letter-spacing: 0.04em;">
+    Created by Shirwa Abdullahi | shirwa.ma@gmail.com
+</footer>
 
 <script>
 let latestData = [];
@@ -291,31 +810,25 @@ let showInvalid = true;
 let showNotFound = true;
 let debounceTimer;
 
-
-
 fetch("/postcodes")
     .then(res => res.json())
-    .then(data => {
-        allPostcodes = data;
-    });
+    .then(data => { allPostcodes = data; });
 
 function toggleInstructions() {
     let content = document.getElementById("instructionsContent");
     let arrow = document.getElementById("instructionArrow");
+    let toggle = document.getElementById("instrToggle");
 
-    if (content.style.display === "none") {
-        content.style.display = "block";
-        arrow.textContent = "▼";
+    if (content.classList.contains("visible")) {
+        content.classList.remove("visible");
+        arrow.classList.remove("open");
     } else {
-        content.style.display = "none";
-        arrow.textContent = "▶";
+        content.classList.add("visible");
+        arrow.classList.add("open");
     }
 }
 
-function updateUI() {
-    renderTable();
-    updateTotalCount();
-}
+function updateUI() { renderTable(); updateTotalCount(); }
 
 function safeUpdate() {
     clearTimeout(debounceTimer);
@@ -325,58 +838,52 @@ function safeUpdate() {
 function similarity(a, b) {
     let longer = a.length > b.length ? a : b;
     let shorter = a.length > b.length ? b : a;
-
     let same = 0;
     for (let i = 0; i < shorter.length; i++) {
         if (a[i] === b[i]) same++;
     }
-
-        return same / longer.length;
+    return same / longer.length;
 }
 
 function renderTable() {
-    let table = "<tr><th>Postcode</th><th>Ward</th></tr>";
-
     let dataToShow = getFilteredData();
+    let emptyState = document.getElementById("emptyState");
+
+    if (dataToShow.length === 0 && latestData.length === 0) {
+        emptyState.style.display = "block";
+        document.getElementById("results").innerHTML = "";
+        return;
+    }
+
+    emptyState.style.display = "none";
+
+    let table = `<tr><th>Postcode</th><th>Ward</th></tr>`;
 
     dataToShow.forEach(row => {
         let formatted = formatPostcode(row.postcode);
         let isValid = isValidPostcodeFormat(formatted);
-
         let wardDisplay = "";
         let rowClass = "";
 
         if (!isValid) {
-            wardDisplay = "Invalid input";
+            wardDisplay = `<span class="badge-invalid">
+                <svg width="12" height="12" viewBox="0 0 12 12"><circle cx="6" cy="6" r="5" fill="#e24b4a" opacity="0.15"/><path d="M6 4v3M6 8.5v.5" stroke="#a32020" stroke-width="1.2" stroke-linecap="round"/></svg>
+                Invalid input
+            </span>`;
             rowClass = "invalid";
-        } 
-        else if (row.ward === "Not found") {
-
+        } else if (row.ward === "Not found") {
             let suggestions = getSuggestions(row.postcode);
-
-            let suggestionsHTML = suggestions.map(s => 
-                `<span class="suggestion" 
-                    data-original="${row.postcode}" 
-                    data-suggestion="${formatPostcode(s)}">
-                    ${formatPostcode(s)}
-                </span>`
+            let suggestionsHTML = suggestions.map(s =>
+                `<span class="suggestion" data-original="${row.postcode}" data-suggestion="${formatPostcode(s)}">${formatPostcode(s)}</span>`
             ).join(", ");
-
-            wardDisplay = `
-                Not found<br>
-                <small>Did you mean: ${suggestionsHTML}</small>
-            `;
-
+            wardDisplay = `<span class="badge-notfound">Not found</span><br>
+                <small style="font-size:0.78rem; color:var(--text-muted);">Did you mean: ${suggestionsHTML}</small>`;
             rowClass = "not-found";
-        } 
-        else {
-            wardDisplay = row.ward;
+        } else {
+            wardDisplay = `<span class="ward-badge">${row.ward}</span>`;
         }
 
-        table += `<tr class="${rowClass}">
-            <td>${formatted}</td>
-            <td>${wardDisplay}</td>
-        </tr>`;
+        table += `<tr class="${rowClass}"><td><strong>${formatted}</strong></td><td>${wardDisplay}</td></tr>`;
     });
 
     document.getElementById("results").innerHTML = table;
@@ -384,163 +891,77 @@ function renderTable() {
 
 function getSuggestions(input) {
     let clean = input.toUpperCase().replace(/\s+/g, '');
-
-    let scores = allPostcodes.map(pc => {
-        let cleanPC = pc.replace(/\s+/g, '');
-        return {
-            postcode: pc,
-            score: similarity(clean, cleanPC)
-        };
-    });
-
-    // Sort by best match
+    let scores = allPostcodes.map(pc => ({
+        postcode: pc,
+        score: similarity(clean, pc.replace(/\s+/g, ''))
+    }));
     scores.sort((a, b) => b.score - a.score);
-
-    // Return top 3 suggestions
     return scores.slice(0, 3).map(s => s.postcode);
 }
 
 function updateSelectedWards() {
     selectedWards.clear();
-
-    document.querySelectorAll("#filterOptions input:checked")
-        .forEach(cb => selectedWards.add(cb.value));
+    document.querySelectorAll("#filterOptions input:checked").forEach(cb => selectedWards.add(cb.value));
 }
 
 function updateFilterCounts() {
     let wardCounts = {};
-
-    // Count ONLY selected wards
     latestData.forEach(row => {
-        if (
-            row.ward &&
-            row.ward !== "Not found" &&
-            selectedWards.has(row.ward)
-        ) {
+        if (row.ward && row.ward !== "Not found" && selectedWards.has(row.ward)) {
             wardCounts[row.ward] = (wardCounts[row.ward] || 0) + 1;
         }
     });
-
-    // Update labels
-  document.querySelectorAll("#filterOptions label").forEach(label => {
-    let checkbox = label.querySelector("input");
-    let ward = checkbox.value;
-
-    let count = wardCounts[ward] || 0;
-
-    let countSpan = label.querySelector(".ward-count");
-    if (countSpan) {
-        countSpan.textContent = count;
-    }
-});
-
-
+    document.querySelectorAll("#filterOptions label").forEach(label => {
+        let checkbox = label.querySelector("input");
+        let ward = checkbox ? checkbox.value : null;
+        let countSpan = label.querySelector(".ward-count");
+        if (countSpan && ward) countSpan.textContent = wardCounts[ward] || 0;
+    });
 }
 
 function getFilteredData() {
     return latestData.filter(row => {
-
         let formatted = formatPostcode(row.postcode);
         let isValid = isValidPostcodeFormat(formatted);
-
-        // ❌ INVALID handling
-        if (!isValid) {
-            return showInvalid;
-        }
-
-        // ❌ NOT FOUND handling
-        if (row.ward === "Not found") {
-            return showNotFound;
-        }
-
-        // ✅ VALID + FOUND → apply ward filters
+        if (!isValid) return showInvalid;
+        if (row.ward === "Not found") return showNotFound;
         return selectedWards.has(row.ward);
     });
 }
 
 function downloadChart() {
-    if (!chartInstance) {
-        alert("No chart to download!");
-        return;
-    }
-
+    if (!chartInstance) { alert("No chart to download!"); return; }
     let chartCanvas = document.getElementById("wardChart");
-
-    // ===== 1. Calculate counts FIRST =====
     let wardCounts = {};
     let total = 0;
-
     latestData.forEach(row => {
         let formatted = formatPostcode(row.postcode);
-        let isValid = isValidPostcodeFormat(formatted);
-
-        if (
-            isValid &&
-            row.ward !== "Not found" &&
-            selectedWards.has(row.ward)
-        ) {
+        if (isValidPostcodeFormat(formatted) && row.ward !== "Not found" && selectedWards.has(row.ward)) {
             wardCounts[row.ward] = (wardCounts[row.ward] || 0) + 1;
             total++;
         }
     });
-
-    // ===== 2. Calculate dynamic height =====
     let width = chartCanvas.width;
-
     let numWards = Object.keys(wardCounts).length;
-    let numLines = numWards + 2; // title + total
-
-    let lineHeight = 20;
-    let extraHeight = (numLines * lineHeight) + 40;
-
+    let extraHeight = ((numWards + 2) * 20) + 40;
     let height = chartCanvas.height + extraHeight;
-
     let canvas = document.createElement("canvas");
     let ctx = canvas.getContext("2d");
-
-    canvas.width = width;
-    canvas.height = height;
-
-    // ===== 3. Load chart image =====
+    canvas.width = width; canvas.height = height;
     let img = new Image();
     img.src = chartCanvas.toDataURL("image/png");
-
     img.onload = function () {
-
-        // White background
         ctx.fillStyle = "white";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-        // Draw chart
         ctx.drawImage(img, 0, 0);
-
-        // Text styling
         ctx.fillStyle = "black";
-        ctx.font = "14px Arial";
-
+        ctx.font = "14px DM Sans, Arial";
         let textY = chartCanvas.height + 30;
-
         ctx.fillText("Postcode Counts:", 10, textY);
-
         let i = 1;
-        for (let ward in wardCounts) {
-            ctx.fillText(
-                `${ward}: ${wardCounts[ward]}`,
-                10,
-                textY + (i * 20)
-            );
-            i++;
-        }
-
-        // Total
-        ctx.font = "bold 14px Arial";
-        ctx.fillText(
-            `Total: ${total}`,
-            10,
-            textY + ((i + 1) * 20)
-        );
-
-        // ===== 4. Download =====
+        for (let ward in wardCounts) { ctx.fillText(`${ward}: ${wardCounts[ward]}`, 10, textY + (i * 20)); i++; }
+        ctx.font = "bold 14px DM Sans, Arial";
+        ctx.fillText(`Total: ${total}`, 10, textY + ((i + 1) * 20));
         let link = document.createElement("a");
         link.download = "postcode_chart.png";
         link.href = canvas.toDataURL("image/png");
@@ -549,363 +970,228 @@ function downloadChart() {
 }
 
 function toggleChart() {
-    let canvas = document.getElementById("wardChart");
-
+    let container = document.getElementById("chartContainer");
     chartVisible = !chartVisible;
-    canvas.style.display = chartVisible ? "block" : "none";
-
-    if (chartVisible) {
-        showChart();
-    }
+    container.classList.toggle("visible", chartVisible);
+    if (chartVisible) showChart();
 }
 
 function populateFilters() {
     let wardCounts = {};
-
-    // Count all wards
     latestData.forEach(row => {
         if (row.ward && row.ward !== "Not found") {
             wardCounts[row.ward] = (wardCounts[row.ward] || 0) + 1;
         }
     });
-
     let wards = Object.keys(wardCounts);
-
     let wardHTML = wards.map(w =>
-    `<label>
-    <input type="checkbox" value="${w}" checked>
-    <span class="ward-label">${w}</span>
-    (<span class="ward-count">${wardCounts[w]}</span>)
-</label><br>`
-
-).join("");
-
-// ✅ Add display options ONCE (outside loop)
-let extraHTML = `
-    <hr>
-    <strong>Display Options</strong><br>
-    <label>
-        <input type="checkbox" id="toggleInvalid" checked>
-        Show Invalid
-    </label><br>
-    <label>
-        <input type="checkbox" id="toggleNotFound" checked>
-        Show Not Found
-    </label>
-`;
-
-document.getElementById("filterOptions").innerHTML = wardHTML + extraHTML;
+        `<label>
+            <input type="checkbox" value="${w}" checked>
+            <span class="ward-label">${w}</span>
+            <span class="ward-count">${wardCounts[w]}</span>
+        </label>`
+    ).join("");
+    let extraHTML = `
+        <hr class="filter-divider">
+        <h4 style="margin-bottom:8px;">Display Options</h4>
+        <label><input type="checkbox" id="toggleInvalid" checked> Show Invalid</label>
+        <label><input type="checkbox" id="toggleNotFound" checked> Show Not Found</label>`;
+    document.getElementById("filterOptions").innerHTML = wardHTML + extraHTML;
     selectedWards = new Set(wards);
-
     document.querySelectorAll("#filterOptions input").forEach(cb => {
-        cb.addEventListener("change", () => {
-            updateSelectedWards();
-            updateFilterCounts();
-            safeUpdate();
-            showChart();         // 🔥 update chart
-        });
+        cb.addEventListener("change", () => { updateSelectedWards(); updateFilterCounts(); safeUpdate(); showChart(); });
     });
-
-    document.getElementById("toggleInvalid").addEventListener("change", (e) => {
-    showInvalid = e.target.checked;
-    safeUpdate();
-});
-
-document.getElementById("toggleNotFound").addEventListener("change", (e) => {
-    showNotFound = e.target.checked;
-    safeUpdate();
-});
+    document.getElementById("toggleInvalid").addEventListener("change", e => { showInvalid = e.target.checked; safeUpdate(); });
+    document.getElementById("toggleNotFound").addEventListener("change", e => { showNotFound = e.target.checked; safeUpdate(); });
 }
 
 function updateTotalCount() {
-
     let filtered = getFilteredData();
-
     let total = latestData.length;
     let showing = filtered.length;
-
-    let valid = 0;
-    let notFound = 0;
-    let invalid = 0;
-
+    let valid = 0, notFound = 0, invalid = 0;
     filtered.forEach(row => {
         let formatted = formatPostcode(row.postcode);
-        let isValid = isValidPostcodeFormat(formatted);
-
-        if (!isValid) {
-            invalid++;
-        } else if (row.ward === "Not found") {
-            notFound++;
-        } else {
-            valid++;
-        }
+        if (!isValidPostcodeFormat(formatted)) invalid++;
+        else if (row.ward === "Not found") notFound++;
+        else valid++;
     });
 
-    document.getElementById("totalCount").innerText =
-        `Showing ${showing} out of ${total} postcodes: ${valid} valid, ${notFound} not found, ${invalid} invalid`;
-}
+    let html = `<span class="status-label">Showing ${showing} of ${total}:</span>`;
+    if (valid > 0) html += `<span class="status-pill valid"><span class="dot"></span>${valid} found</span>`;
+    if (notFound > 0) html += `<span class="status-pill notfound"><span class="dot"></span>${notFound} not found</span>`;
+    if (invalid > 0) html += `<span class="status-pill invalid"><span class="dot"></span>${invalid} invalid</span>`;
 
+    document.getElementById("totalCount").innerHTML = html;
+}
 
 async function lookup() {
     let input = document.getElementById("input").value;
-
-
-let postcodes = input
-    .split(/\n|,/)
-    .map(p => p.trim())
-    .filter(p => p !== "");
-
-
-// Notify user if duplicates found
-
-
+    let postcodes = input.split(/\n|,/).map(p => p.trim()).filter(p => p !== "");
     let response = await fetch("/lookup", {
         method: "POST",
-        headers: {
-            "Content-Type": "application/json"
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ postcodes })
     });
-
     let data = await response.json();
-
     latestData = data;
-
-    populateFilters();   // sets selectedWards first
+    populateFilters();
     renderTable();
-    updateTotalCount(); // counts AFTER table is correct
-
-    if (chartVisible) {
-        showChart();
-    }
-
+    updateTotalCount();
+    if (chartVisible) showChart();
 }
 
 function formatPostcode(postcode) {
     let clean = postcode.toUpperCase().replace(/\s+/g, '');
-
-    // UK postcode formatting: split before last 3 characters
-    if (clean.length > 3) {
-        return clean.slice(0, -3) + " " + clean.slice(-3);
-    }
-
+    if (clean.length > 3) return clean.slice(0, -3) + " " + clean.slice(-3);
     return postcode.toUpperCase();
 }
 
-
 function showChart() {
-    if (!latestData || latestData.length === 0) {
-        alert("Run a lookup first!");
-        return;
-    }
-
-    chartVisible = true; // ✅ ensure it's marked visible
-
+    if (!latestData || latestData.length === 0) { alert("Run a lookup first!"); return; }
+    chartVisible = true;
+    document.getElementById("chartContainer").classList.add("visible");
     let wardCounts = {};
-
     latestData.forEach(row => {
-        if (
-            row.ward &&
-            row.ward !== "Not found" &&
-            selectedWards.has(row.ward)
-        ) {
+        if (row.ward && row.ward !== "Not found" && selectedWards.has(row.ward)) {
             wardCounts[row.ward] = (wardCounts[row.ward] || 0) + 1;
         }
     });
-
-    let sorted = Object.entries(wardCounts)
-        .sort((a, b) => b[1] - a[1]);
-
+    let sorted = Object.entries(wardCounts).sort((a, b) => b[1] - a[1]);
     let labels = sorted.map(x => x[0]);
     let values = sorted.map(x => x[1]);
-
     let ctx = document.getElementById("wardChart").getContext("2d");
-
-    if (chartInstance) {
-        chartInstance.destroy();
-    }
-
+    if (chartInstance) chartInstance.destroy();
     chartInstance = new Chart(ctx, {
         type: "bar",
         data: {
-            labels: labels,
+            labels,
             datasets: [{
                 label: "Number of Postcodes",
-                data: values
+                data: values,
+                backgroundColor: "rgba(15,31,61,0.75)",
+                borderColor: "#0f1f3d",
+                borderWidth: 1,
+                borderRadius: 4,
+                hoverBackgroundColor: "rgba(200,150,62,0.85)"
             }]
         },
         options: {
             responsive: true,
             plugins: {
-                legend: { display: false }
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: "#0f1f3d",
+                    titleColor: "#fff",
+                    bodyColor: "rgba(255,255,255,0.8)",
+                    padding: 10,
+                    cornerRadius: 8
+                }
+            },
+            scales: {
+                x: {
+                    grid: { display: false },
+                    ticks: { font: { family: "'DM Sans', sans-serif", size: 12 }, color: "#4a5878" }
+                },
+                y: {
+                    grid: { color: "rgba(0,0,0,0.06)" },
+                    ticks: { font: { family: "'DM Sans', sans-serif", size: 12 }, color: "#4a5878", stepSize: 1 }
+                }
             }
         }
     });
 }
 
 function isValidPostcodeFormat(postcode) {
-    let clean = postcode.toUpperCase().trim();
-
-    // Match BS + digits + space + digit + 2 letters
-    return /^BS\d+\s\d[A-Z]{2}$/.test(clean);
+    return /^BS\d+\s\d[A-Z]{2}$/.test(postcode.toUpperCase().trim());
 }
+
 function toggleFilter() {
-    let box = document.getElementById("filterBox");
-    box.style.display = box.style.display === "none" ? "block" : "none";
+    document.getElementById("filterBox").classList.toggle("open");
 }
 
 function resetFilters() {
-    document.querySelectorAll("#filterOptions input").forEach(cb => {
-        cb.checked = true;
-    });
-
+    document.querySelectorAll("#filterOptions input").forEach(cb => { cb.checked = true; });
     updateSelectedWards();
     updateFilterCounts();
-    safeUpdate();  
-    showChart();    
-    
-    document.getElementById("toggleInvalid").checked = true;
-    document.getElementById("toggleNotFound").checked = true;
-
+    safeUpdate();
+    showChart();
+    let ti = document.getElementById("toggleInvalid");
+    let tn = document.getElementById("toggleNotFound");
+    if (ti) ti.checked = true;
+    if (tn) tn.checked = true;
     showInvalid = true;
     showNotFound = true;
 }
 
-// ===== DOWNLOAD CSV =====
 function downloadCSV() {
-    if (latestData.length === 0) {
-        alert("No data to download!");
-        return;
-    }
-
+    if (latestData.length === 0) { alert("No data to download!"); return; }
     let csv = "Postcode,Ward\n";
-
     latestData.forEach(row => {
         let formatted = formatPostcode(row.postcode);
-        let isValid = isValidPostcodeFormat(formatted);
-
-        // Skip invalid or not found inputs
-       if (!isValid || row.ward === "Not found") return;
-
-        let ward = row.ward === "Not found"
-            ? "Not found in dataset"
-            : row.ward;
-
-        csv += `${formatted},${ward}\n`;
+        if (!isValidPostcodeFormat(formatted) || row.ward === "Not found") return;
+        csv += `${formatted},${row.ward}\n`;
     });
-
     let blob = new Blob([csv], { type: "text/csv" });
     let url = URL.createObjectURL(blob);
-
     let a = document.createElement("a");
-    a.href = url;
-    a.download = "postcode_results.csv";
-    a.click();
+    a.href = url; a.download = "postcode_results.csv"; a.click();
 }
 
-document.addEventListener("click", (e) => {
-    if (e.target.classList.contains("suggestion")) {
-
-        let original = e.target.getAttribute("data-original");
-        let replacement = e.target.getAttribute("data-suggestion");
-
-        let inputBox = document.getElementById("input");
-
-        // Split input into lines/entries
-        let entries = inputBox.value
-            .split(/\n|,/)
-            .map(p => p.trim());
-
-        // Replace the incorrect one
-        let updated = entries.map(p => {
-            let formatted = formatPostcode(p);
-            return formatted === formatPostcode(original)
-                ? replacement
-                : p;
-        });
-
-        // Update input box
-        inputBox.value = updated.join("\n");
-
-        lookup();
-
-        document.getElementById("results").scrollIntoView({ behavior: "smooth" });
-    }
-});
-
+// Live suggestions
 document.getElementById("input").addEventListener("input", () => {
     let input = document.getElementById("input").value;
-
-    // Get last typed postcode fragment
     let parts = input.split(/\n|,/);
     let current = parts[parts.length - 1].trim();
-
-    if (current.length < 2) {
-        document.getElementById("liveSuggestions").innerHTML = "";
-        return;
-    }
-
+    let box = document.getElementById("liveSuggestions");
+    if (current.length < 2) { box.style.display = "none"; box.innerHTML = ""; return; }
     let suggestions = getSuggestions(current).slice(0, 5);
+    let html = suggestions.map(s => `<div class="live-suggestion">${formatPostcode(s)}</div>`).join("");
+    box.innerHTML = html;
+    box.style.display = html ? "block" : "none";
+});
 
-    let html = suggestions.map(s => 
-        `<div class="live-suggestion">${formatPostcode(s)}</div>`
-    ).join("");
-
-    document.getElementById("liveSuggestions").innerHTML = html;
+// Clicks
+document.addEventListener("click", (e) => {
+    if (e.target.classList.contains("suggestion")) {
+        let original = e.target.getAttribute("data-original");
+        let replacement = e.target.getAttribute("data-suggestion");
+        let inputBox = document.getElementById("input");
+        let entries = inputBox.value.split(/\n|,/).map(p => p.trim());
+        let updated = entries.map(p => formatPostcode(p) === formatPostcode(original) ? replacement : p);
+        inputBox.value = updated.join("\n");
+        lookup();
+        document.getElementById("resultsCard").scrollIntoView({ behavior: "smooth" });
+    }
 });
 
 document.addEventListener("click", (e) => {
     if (e.target.classList.contains("live-suggestion")) {
-
         let selected = e.target.innerText;
         let inputBox = document.getElementById("input");
-
         let parts = inputBox.value.split(/\n|,/);
-
-        // Replace last typed part
-        let formattedSelected = formatPostcode(selected);
-
-
-// Replace last typed part
-parts[parts.length - 1] = formattedSelected;
-
-
-
-// Replace last typed part
-parts[parts.length - 1] = formattedSelected;
-
+        parts[parts.length - 1] = formatPostcode(selected);
         inputBox.value = parts.join("\n");
-
-        // Clear suggestions
-        document.getElementById("liveSuggestions").innerHTML = "";
-
-       
+        let box = document.getElementById("liveSuggestions");
+        box.style.display = "none"; box.innerHTML = "";
     }
 });
 
 document.addEventListener("click", (e) => {
-    if (!e.target.classList.contains("live-suggestion") &&
-        e.target.id !== "input") {
-        document.getElementById("liveSuggestions").innerHTML = "";
+    let box = document.getElementById("liveSuggestions");
+    if (!e.target.classList.contains("live-suggestion") && e.target.id !== "input") {
+        box.style.display = "none"; box.innerHTML = "";
     }
 });
 
 document.addEventListener("click", (e) => {
     let filterBox = document.getElementById("filterBox");
     let filterBtn = document.getElementById("filterBtn");
-
-    if (
-        filterBox &&
-        !filterBox.contains(e.target) &&
-        !filterBtn.contains(e.target)
-    ) {
-        filterBox.style.display = "none";
+    if (filterBox && !filterBox.contains(e.target) && !filterBtn.contains(e.target)) {
+        filterBox.classList.remove("open");
     }
 });
-
 </script>
-
-</div>
 
 </body>
 </html>
