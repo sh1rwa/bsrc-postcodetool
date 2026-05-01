@@ -610,6 +610,120 @@
         .card:nth-child(3) { animation-delay: 0.1s; }
         .card:nth-child(4) { animation-delay: 0.15s; }
 
+        /* ── HEATMAP ── */
+        .map-card { display: none; }
+        .map-card.visible { display: block; }
+
+        .map-wrapper {
+            position: relative;
+            display: inline-block;
+            width: 100%;
+            line-height: 0;
+        }
+
+        .map-wrapper img {
+            width: 100%;
+            height: auto;
+            display: block;
+            border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+        }
+
+        .map-svg-overlay {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            pointer-events: none;
+        }
+
+        .ward-circle {
+            transition: r 0.3s ease, opacity 0.3s ease;
+            pointer-events: all;
+            cursor: pointer;
+        }
+
+        .ward-circle:hover { opacity: 0.85; filter: brightness(1.1); }
+
+        .ward-tooltip {
+            position: absolute;
+            background: var(--navy);
+            color: #fff;
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.78rem;
+            padding: 6px 12px;
+            border-radius: 6px;
+            pointer-events: none;
+            white-space: nowrap;
+            z-index: 300;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+            display: none;
+        }
+
+        .ward-tooltip::after {
+            content: "";
+            position: absolute;
+            bottom: -5px; left: 50%;
+            transform: translateX(-50%);
+            border: 5px solid transparent;
+            border-bottom: none;
+            border-top-color: var(--navy);
+        }
+
+        /* Legend */
+        .map-legend {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 14px 22px;
+            border-top: 1px solid var(--border);
+            flex-wrap: wrap;
+        }
+
+        .legend-label {
+            font-size: 0.78rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            margin-right: 4px;
+        }
+
+        .legend-gradient {
+            flex: 1;
+            min-width: 160px;
+            max-width: 260px;
+            height: 14px;
+            border-radius: 20px;
+            background: linear-gradient(to right, #FFE033, #FF8C00, #CC1111);
+            border: 1px solid rgba(0,0,0,0.08);
+        }
+
+        .legend-ends {
+            display: flex;
+            justify-content: space-between;
+            min-width: 160px;
+            max-width: 260px;
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            margin-top: 3px;
+        }
+
+        .legend-note {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            font-style: italic;
+            margin-left: auto;
+        }
+
+        .map-empty {
+            text-align: center;
+            padding: 40px 24px;
+        }
+
+        .map-empty p {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
         /* ── RESPONSIVE ── */
         @media (max-width: 600px) {
             .instr-cols { grid-template-columns: 1fr; }
@@ -735,8 +849,16 @@
 
                 <div class="btn-group-divider"></div>
 
-                <div class="filter-wrapper">
-                    <button class="btn btn-gold" id="filterBtn" onclick="toggleFilter()">
+                <button class="btn btn-secondary" onclick="toggleMap()">
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                        <path d="M1 3.5l4-2 4 2 4-2v9l-4 2-4-2-4 2v-9z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+                        <path d="M5 1.5v9M9 3.5v9" stroke="currentColor" stroke-width="1" opacity="0.5"/>
+                    </svg>
+                    Show/Hide Map
+                </button>
+
+                <div class="btn-group-divider"></div>
+                    <button class="btn btn-gold" id="filterBtn" onclick="toggleFilter(event)">
                         <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
                             <path d="M1 3h12M3 7h8M5 11h4" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
                         </svg>
@@ -794,10 +916,49 @@
         </div>
     </div>
 
+    <!-- HEATMAP CARD -->
+    <div class="card map-card" id="mapCard">
+        <div class="card-header">
+            <div class="card-header-left">
+                <div class="card-icon">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                        <path d="M1 4l5-2.5 4 2 5-2.5v11L15 14l-5 2.5-4-2L1 17V4z" stroke="rgba(255,255,255,0.8)" stroke-width="1.2" stroke-linejoin="round"/>
+                    </svg>
+                </div>
+                <span class="card-title">Ward Heatmap</span>
+            </div>
+            <span style="font-size:0.78rem; color:var(--text-muted);">Circle size &amp; colour = postcode count</span>
+        </div>
+
+        <!-- Legend -->
+        <div class="map-legend">
+            <span class="legend-label">Intensity</span>
+            <div>
+                <div class="legend-gradient"></div>
+                <div class="legend-ends"><span>Fewer</span><span>More</span></div>
+            </div>
+            <span class="legend-note">Hover a circle to see ward name &amp; count</span>
+        </div>
+
+        <!-- Map empty state -->
+        <div class="map-empty" id="mapEmpty">
+            <p>Run a lookup first to see the ward heatmap.</p>
+        </div>
+
+        <!-- Map image + SVG overlay -->
+        <div class="map-wrapper" id="mapWrapper" style="display:none;">
+            <img src="/static/bristol_wards_blank.jpeg" alt="Bristol ward map" id="mapImage">
+            <svg class="map-svg-overlay" id="mapOverlay" viewBox="0 0 1000 1120" preserveAspectRatio="xMidYMid meet"></svg>
+        </div>
+    </div>
+
+    <!-- Tooltip -->
+    <div class="ward-tooltip" id="wardTooltip"></div>
+
 </main>
 
 <footer style="text-align: center; padding: 0 0 28px; font-family: 'DM Sans', sans-serif; font-size: 0.75rem; color: #b4bdd0; letter-spacing: 0.04em;">
-    Created by Shirwa Abdullahi | shirwa.ma@gmail.com
+    Created by Shirwa Abdullahi
 </footer>
 
 <script>
@@ -1039,6 +1200,7 @@ async function lookup() {
     renderTable();
     updateTotalCount();
     if (chartVisible) showChart();
+    if (mapVisible) renderHeatmap();
 }
 
 function formatPostcode(postcode) {
@@ -1106,7 +1268,8 @@ function isValidPostcodeFormat(postcode) {
     return /^BS\d+\s\d[A-Z]{2}$/.test(postcode.toUpperCase().trim());
 }
 
-function toggleFilter() {
+function toggleFilter(e) {
+    if (e) e.stopPropagation();
     document.getElementById("filterBox").classList.toggle("open");
 }
 
@@ -1184,13 +1347,165 @@ document.addEventListener("click", (e) => {
     }
 });
 
-document.addEventListener("click", (e) => {
-    let filterBox = document.getElementById("filterBox");
-    let filterBtn = document.getElementById("filterBtn");
-    if (filterBox && !filterBox.contains(e.target) && !filterBtn.contains(e.target)) {
-        filterBox.classList.remove("open");
+
+// ===== HEATMAP =====
+
+let mapVisible = false;
+
+// Ward centre positions as percentages of the map image (x%, y%)
+// Calibrated against the Bristol ward map image
+const wardPositions = {
+    "Avonmouth and Lawrence Weston":  { x: 18, y: 27 },
+    "Henbury and Brentry":            { x: 43, y: 17 },
+    "Southmead":                      { x: 53, y: 22 },
+    "Horfield":                       { x: 59, y: 28 },
+    "Westbury-on-Trym and Henleaze":  { x: 47, y: 33 },
+    "Lockleaze":                      { x: 63, y: 33 },
+    "Frome Vale":                     { x: 78, y: 33 },
+    "Bishopston and Ashley Down":     { x: 57, y: 38 },
+    "Stoke Bishop":                   { x: 40, y: 44 },
+    "Redland":                        { x: 52, y: 43 },
+    "Ashley":                         { x: 63, y: 43 },
+    "Eastville":                      { x: 69, y: 44 },
+    "Hillfields":                     { x: 80, y: 46 },
+    "Clifton Down":                   { x: 48, y: 51 },
+    "Easton (Bristol)":               { x: 67, y: 51 },
+    "St George Central":              { x: 78, y: 53 },
+    "Clifton (Bristol)":              { x: 45, y: 57 },
+    "Central (Bristol)":              { x: 57, y: 56 },
+    "Lawrence Hill":                  { x: 65, y: 56 },
+    "St George Troopers Hill":        { x: 79, y: 59 },
+    "Hotwells and Harbourside":       { x: 49, y: 61 },
+    "Southville":                     { x: 56, y: 64 },
+    "Windmill Hill":                  { x: 61, y: 66 },
+    "Brislington East":               { x: 74, y: 66 },
+    "Bedminster":                     { x: 47, y: 69 },
+    "Brislington West":               { x: 70, y: 71 },
+    "Knowle (Bristol)":               { x: 64, y: 71 },
+    "Filwood":                        { x: 57, y: 76 },
+    "Bishopsworth":                   { x: 46, y: 80 },
+    "Stockwood":                      { x: 73, y: 79 },
+    "Hartcliffe and Withywood":       { x: 50, y: 89 },
+    "Hengrove and Whitchurch Park":   { x: 63, y: 84 }
+};
+
+function heatColour(ratio) {
+    // 0 → yellow (#FFE033), 0.5 → orange (#FF6600), 1 → deep red (#CC1111)
+    let r, g, b;
+    if (ratio < 0.5) {
+        let t = ratio * 2;
+        r = Math.round(255);
+        g = Math.round(224 + (102 - 224) * t);  // 224→102
+        b = Math.round(51 * (1 - t));            // 51→0
+    } else {
+        let t = (ratio - 0.5) * 2;
+        r = Math.round(255 + (204 - 255) * t);  // 255→204
+        g = Math.round(102 * (1 - t));           // 102→0
+        b = 0;
     }
-});
+    return `rgb(${r},${g},${b})`;
+}
+
+function renderHeatmap() {
+    let svg = document.getElementById("mapOverlay");
+    let mapEmpty = document.getElementById("mapEmpty");
+    let mapWrapper = document.getElementById("mapWrapper");
+
+    if (!latestData || latestData.length === 0) {
+        mapEmpty.style.display = "block";
+        mapWrapper.style.display = "none";
+        return;
+    }
+
+    // Count postcodes per ward (valid only)
+    let wardCounts = {};
+    latestData.forEach(row => {
+        let formatted = formatPostcode(row.postcode);
+        if (isValidPostcodeFormat(formatted) && row.ward && row.ward !== "Not found") {
+            wardCounts[row.ward] = (wardCounts[row.ward] || 0) + 1;
+        }
+    });
+
+    let maxCount = Math.max(...Object.values(wardCounts), 1);
+
+    // Build SVG circles
+    // viewBox is "0 0 1000 1120" — positions are % of those dimensions
+    let svgContent = "";
+
+    for (let ward in wardPositions) {
+        let pos = wardPositions[ward];
+        let cx = (pos.x / 100) * 1000;
+        let cy = (pos.y / 100) * 1120;
+        let count = wardCounts[ward] || 0;
+
+        if (count === 0) {
+            // Faint empty ring
+            svgContent += `
+                <circle class="ward-circle" cx="${cx}" cy="${cy}" r="10"
+                    fill="rgba(200,210,230,0.25)" stroke="rgba(150,170,210,0.5)" stroke-width="1.5"
+                    data-ward="${ward}" data-count="0"/>`;
+        } else {
+            let ratio = count / maxCount;
+            let r = 14 + ratio * 22; // radius 14–36
+            let colour = heatColour(ratio);
+            let textSize = r < 20 ? 11 : r < 28 ? 13 : 15;
+            svgContent += `
+                <circle class="ward-circle" cx="${cx}" cy="${cy}" r="${r}"
+                    fill="${colour}" fill-opacity="0.82" stroke="rgba(255,255,255,0.7)" stroke-width="1.5"
+                    data-ward="${ward}" data-count="${count}"/>
+                <text x="${cx}" y="${cy}" text-anchor="middle" dominant-baseline="central"
+                    font-family="DM Sans, sans-serif" font-size="${textSize}" font-weight="700"
+                    fill="white" style="pointer-events:none; text-shadow: 0 1px 2px rgba(0,0,0,0.4);">
+                    ${count}
+                </text>`;
+        }
+    }
+
+    svg.innerHTML = svgContent;
+    mapEmpty.style.display = "none";
+    mapWrapper.style.display = "block";
+
+    // Tooltip behaviour
+    let tooltip = document.getElementById("wardTooltip");
+    let mapWrapperEl = document.getElementById("mapWrapper");
+
+    svg.querySelectorAll(".ward-circle").forEach(circle => {
+        circle.addEventListener("mouseenter", (e) => {
+            let ward = circle.getAttribute("data-ward");
+            let count = circle.getAttribute("data-count");
+            tooltip.textContent = count > 0
+                ? `${ward}: ${count} postcode${count == 1 ? "" : "s"}`
+                : `${ward}: no postcodes`;
+            tooltip.style.display = "block";
+        });
+
+        circle.addEventListener("mousemove", (e) => {
+            let rect = mapWrapperEl.getBoundingClientRect();
+            let x = e.clientX - rect.left;
+            let y = e.clientY - rect.top;
+            tooltip.style.left = (x - tooltip.offsetWidth / 2) + "px";
+            tooltip.style.top = (y - tooltip.offsetHeight - 12) + "px";
+            tooltip.style.position = "absolute";
+            // Position tooltip relative to page
+            tooltip.style.left = (e.pageX - tooltip.offsetWidth / 2) + "px";
+            tooltip.style.top = (e.pageY - tooltip.offsetHeight - 14) + "px";
+        });
+
+        circle.addEventListener("mouseleave", () => {
+            tooltip.style.display = "none";
+        });
+    });
+}
+
+function toggleMap() {
+    let card = document.getElementById("mapCard");
+    mapVisible = !mapVisible;
+    card.classList.toggle("visible", mapVisible);
+    if (mapVisible) {
+        renderHeatmap();
+        card.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+}
 </script>
 
 </body>
