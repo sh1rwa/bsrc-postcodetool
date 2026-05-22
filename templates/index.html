@@ -847,6 +847,23 @@
                     Save Chart
                 </button>
 
+                <button class="btn btn-secondary" onclick="downloadMap()">
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+        <path d="M2 10v2a1 1 0 001 1h8a1 1 0 001-1v-2"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"/>
+
+        <path d="M7 2v6M4.5 6l2.5 2.5L9.5 6"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"/>
+    </svg>
+
+    Save Map
+</button>
+
                 <div class="btn-group-divider"></div>
 
                 <button class="btn btn-secondary" onclick="toggleMap()">
@@ -858,21 +875,33 @@
                 </button>
 
                 <div class="btn-group-divider"></div>
-                    <button class="btn btn-gold" id="filterBtn" onclick="toggleFilter(event)">
-                        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                            <path d="M1 3h12M3 7h8M5 11h4" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
-                        </svg>
-                        Filter
-                    </button>
+                    <div class="filter-wrapper">
 
-                    <div id="filterBox" class="filter-box">
-                        <h4>Wards</h4>
-                        <div id="filterOptions"></div>
-                        <hr class="filter-divider">
-                        <button class="btn btn-secondary" style="width:100%; justify-content:center; font-size:0.8rem;" onclick="resetFilters()">
-                            Reset to default
-                        </button>
-                    </div>
+    <button class="btn btn-gold" id="filterBtn" onclick="toggleFilter(event)">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <path d="M1 3h12M3 7h8M5 11h4"
+                  stroke="white"
+                  stroke-width="1.5"
+                  stroke-linecap="round"/>
+        </svg>
+        Filter
+    </button>
+
+    <div id="filterBox" class="filter-box">
+        <h4>Wards</h4>
+
+        <div id="filterOptions"></div>
+
+        <hr class="filter-divider">
+
+        <button class="btn btn-secondary"
+                style="width:100%; justify-content:center; font-size:0.8rem;"
+                onclick="resetFilters()">
+            Reset to default
+        </button>
+    </div>
+
+</div>
                 </div>
             </div>
         </div>
@@ -948,7 +977,11 @@
         <!-- Map image + SVG overlay -->
         <div class="map-wrapper" id="mapWrapper" style="display:none;">
             <img src="/static/bristol_wards_blank.jpeg" alt="Bristol ward map" id="mapImage">
-            <svg class="map-svg-overlay" id="mapOverlay" viewBox="0 0 1000 1120" preserveAspectRatio="xMidYMid meet"></svg>
+            <svg class="map-svg-overlay"
+                id="mapOverlay"
+                viewBox="0 0 1000 1120"
+                preserveAspectRatio="none">
+            </svg>
         </div>
     </div>
 
@@ -1347,13 +1380,11 @@ document.addEventListener("click", (e) => {
     }
 });
 
-
 // ===== HEATMAP =====
 
 let mapVisible = false;
 
-// Ward centre positions as percentages of the map image (x%, y%)
-// Calibrated against the Bristol ward map image
+// Ward centre positions
 const wardPositions = {
     "Avonmouth and Lawrence Weston":  { x: 18, y: 27 },
     "Henbury and Brentry":            { x: 43, y: 17 },
@@ -1389,106 +1420,172 @@ const wardPositions = {
     "Hengrove and Whitchurch Park":   { x: 63, y: 84 }
 };
 
+// Fix backend/frontend naming mismatches
+const wardAliases = {
+    "Central": "Central (Bristol)",
+    "Clifton": "Clifton (Bristol)",
+    "Easton": "Easton (Bristol)",
+    "Knowle": "Knowle (Bristol)",
+    "St George Central Ward": "St George Central",
+    "St George Troopers Hill Ward": "St George Troopers Hill"
+};
+
+function normaliseWardName(name) {
+    return wardAliases[name] || name;
+}
+
 function heatColour(ratio) {
-    // 0 → yellow (#FFE033), 0.5 → orange (#FF6600), 1 → deep red (#CC1111)
+
     let r, g, b;
+
     if (ratio < 0.5) {
+
         let t = ratio * 2;
-        r = Math.round(255);
-        g = Math.round(224 + (102 - 224) * t);  // 224→102
-        b = Math.round(51 * (1 - t));            // 51→0
+
+        r = 255;
+        g = Math.round(224 + (102 - 224) * t);
+        b = Math.round(51 * (1 - t));
+
     } else {
+
         let t = (ratio - 0.5) * 2;
-        r = Math.round(255 + (204 - 255) * t);  // 255→204
-        g = Math.round(102 * (1 - t));           // 102→0
+
+        r = Math.round(255 + (204 - 255) * t);
+        g = Math.round(102 * (1 - t));
         b = 0;
     }
+
     return `rgb(${r},${g},${b})`;
 }
 
 function renderHeatmap() {
+
     let svg = document.getElementById("mapOverlay");
     let mapEmpty = document.getElementById("mapEmpty");
     let mapWrapper = document.getElementById("mapWrapper");
 
     if (!latestData || latestData.length === 0) {
+
         mapEmpty.style.display = "block";
         mapWrapper.style.display = "none";
         return;
     }
 
-    // Count postcodes per ward (valid only)
     let wardCounts = {};
+
     latestData.forEach(row => {
+
         let formatted = formatPostcode(row.postcode);
-        if (isValidPostcodeFormat(formatted) && row.ward && row.ward !== "Not found") {
-            wardCounts[row.ward] = (wardCounts[row.ward] || 0) + 1;
+
+        if (
+            isValidPostcodeFormat(formatted) &&
+            row.ward &&
+            row.ward !== "Not found"
+        ) {
+
+            const ward = normaliseWardName(row.ward);
+
+            if (wardPositions[ward]) {
+                wardCounts[ward] = (wardCounts[ward] || 0) + 1;
+            }
         }
     });
 
     let maxCount = Math.max(...Object.values(wardCounts), 1);
 
-    // Build SVG circles
-    // viewBox is "0 0 1000 1120" — positions are % of those dimensions
     let svgContent = "";
 
     for (let ward in wardPositions) {
+
         let pos = wardPositions[ward];
+
         let cx = (pos.x / 100) * 1000;
         let cy = (pos.y / 100) * 1120;
+
         let count = wardCounts[ward] || 0;
 
         if (count === 0) {
-            // Faint empty ring
+
             svgContent += `
-                <circle class="ward-circle" cx="${cx}" cy="${cy}" r="10"
-                    fill="rgba(200,210,230,0.25)" stroke="rgba(150,170,210,0.5)" stroke-width="1.5"
-                    data-ward="${ward}" data-count="0"/>`;
+                <circle class="ward-circle"
+                    cx="${cx}"
+                    cy="${cy}"
+                    r="10"
+                    fill="rgba(200,210,230,0.25)"
+                    stroke="rgba(150,170,210,0.5)"
+                    stroke-width="1.5"
+                    data-ward="${ward}"
+                    data-count="0"/>`;
+
         } else {
+
             let ratio = count / maxCount;
-            let r = 14 + ratio * 22; // radius 14–36
+
+            let r = 14 + ratio * 22;
+
             let colour = heatColour(ratio);
-            let textSize = r < 20 ? 11 : r < 28 ? 13 : 15;
+
+            let textSize =
+                r < 20 ? 11 :
+                r < 28 ? 13 : 15;
+
             svgContent += `
-                <circle class="ward-circle" cx="${cx}" cy="${cy}" r="${r}"
-                    fill="${colour}" fill-opacity="0.82" stroke="rgba(255,255,255,0.7)" stroke-width="1.5"
-                    data-ward="${ward}" data-count="${count}"/>
-                <text x="${cx}" y="${cy}" text-anchor="middle" dominant-baseline="central"
-                    font-family="DM Sans, sans-serif" font-size="${textSize}" font-weight="700"
-                    fill="white" style="pointer-events:none; text-shadow: 0 1px 2px rgba(0,0,0,0.4);">
+                <circle class="ward-circle"
+                    cx="${cx}"
+                    cy="${cy}"
+                    r="${r}"
+                    fill="${colour}"
+                    fill-opacity="0.82"
+                    stroke="rgba(255,255,255,0.7)"
+                    stroke-width="1.5"
+                    data-ward="${ward}"
+                    data-count="${count}"/>
+
+                <text
+                    x="${cx}"
+                    y="${cy}"
+                    text-anchor="middle"
+                    dominant-baseline="central"
+                    font-family="DM Sans, sans-serif"
+                    font-size="${textSize}"
+                    font-weight="700"
+                    fill="white"
+                    style="pointer-events:none; text-shadow: 0 1px 2px rgba(0,0,0,0.4);">
                     ${count}
                 </text>`;
         }
     }
 
     svg.innerHTML = svgContent;
+
     mapEmpty.style.display = "none";
     mapWrapper.style.display = "block";
 
-    // Tooltip behaviour
     let tooltip = document.getElementById("wardTooltip");
-    let mapWrapperEl = document.getElementById("mapWrapper");
 
     svg.querySelectorAll(".ward-circle").forEach(circle => {
-        circle.addEventListener("mouseenter", (e) => {
+
+        circle.addEventListener("mouseenter", () => {
+
             let ward = circle.getAttribute("data-ward");
+
             let count = circle.getAttribute("data-count");
-            tooltip.textContent = count > 0
-                ? `${ward}: ${count} postcode${count == 1 ? "" : "s"}`
-                : `${ward}: no postcodes`;
+
+            tooltip.textContent =
+                count > 0
+                    ? `${ward}: ${count} postcode${count == 1 ? "" : "s"}`
+                    : `${ward}: no postcodes`;
+
             tooltip.style.display = "block";
         });
 
         circle.addEventListener("mousemove", (e) => {
-            let rect = mapWrapperEl.getBoundingClientRect();
-            let x = e.clientX - rect.left;
-            let y = e.clientY - rect.top;
-            tooltip.style.left = (x - tooltip.offsetWidth / 2) + "px";
-            tooltip.style.top = (y - tooltip.offsetHeight - 12) + "px";
-            tooltip.style.position = "absolute";
-            // Position tooltip relative to page
-            tooltip.style.left = (e.pageX - tooltip.offsetWidth / 2) + "px";
-            tooltip.style.top = (e.pageY - tooltip.offsetHeight - 14) + "px";
+
+            tooltip.style.left =
+                (e.pageX - tooltip.offsetWidth / 2) + "px";
+
+            tooltip.style.top =
+                (e.pageY - tooltip.offsetHeight - 14) + "px";
         });
 
         circle.addEventListener("mouseleave", () => {
@@ -1498,14 +1595,76 @@ function renderHeatmap() {
 }
 
 function toggleMap() {
+
     let card = document.getElementById("mapCard");
+
     mapVisible = !mapVisible;
+
     card.classList.toggle("visible", mapVisible);
+
     if (mapVisible) {
+
         renderHeatmap();
-        card.scrollIntoView({ behavior: "smooth", block: "start" });
+
+        card.scrollIntoView({
+            behavior: "smooth",
+            block: "start"
+        });
     }
 }
+
+async function downloadMap() {
+
+    if (!latestData || latestData.length === 0) {
+
+        alert("No map to save!");
+
+        return;
+    }
+
+    const mapImage = document.getElementById("mapImage");
+
+    const svg = document.getElementById("mapOverlay");
+
+    const canvas = document.createElement("canvas");
+
+    const ctx = canvas.getContext("2d");
+
+    canvas.width = mapImage.naturalWidth;
+
+    canvas.height = mapImage.naturalHeight;
+
+    ctx.drawImage(mapImage, 0, 0, canvas.width, canvas.height);
+
+    const svgData = new XMLSerializer().serializeToString(svg);
+
+    const blob = new Blob(
+        [svgData],
+        { type: "image/svg+xml;charset=utf-8" }
+    );
+
+    const url = URL.createObjectURL(blob);
+
+    const img = new Image();
+
+    img.onload = function () {
+
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+        URL.revokeObjectURL(url);
+
+        const link = document.createElement("a");
+
+        link.download = "ward_heatmap.png";
+
+        link.href = canvas.toDataURL("image/png");
+
+        link.click();
+    };
+
+    img.src = url;
+}
+
 </script>
 
 </body>
